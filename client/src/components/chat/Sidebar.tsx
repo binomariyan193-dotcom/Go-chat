@@ -214,35 +214,59 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {user?.username}
             </h4>
 
-            {/* Online / Offline Status Toggle Button */}
-            <button
+            {/* Online / Offline Slide Switch */}
+            <div
               onClick={handleToggleStatus}
               style={{
-                backgroundColor: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                border: `1px solid ${isOnline ? '#10b981' : '#ef4444'}`,
-                color: isOnline ? '#10b981' : '#ef4444',
-                borderRadius: '12px',
-                padding: '2px 8px',
-                cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '4px',
-                fontSize: '0.72rem',
-                fontWeight: 600,
-                marginTop: '2px',
+                gap: '8px',
+                marginTop: '4px',
+                cursor: 'pointer',
+                userSelect: 'none',
               }}
-              title={isOnline ? 'Set Offline (Red dot, mutes notifications)' : 'Set Online (Green dot, active notifications)'}
+              title={isOnline ? 'Slide to set Offline (Red mode & mute notifications)' : 'Slide to set Online (Green mode & active notifications)'}
             >
+              {/* Slide Switch Track */}
+              <div
+                style={{
+                  width: '36px',
+                  height: '20px',
+                  borderRadius: '12px',
+                  backgroundColor: isOnline ? '#10b981' : '#ef4444',
+                  boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.3)',
+                  position: 'relative',
+                  transition: 'background-color 0.25s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                }}
+              >
+                {/* Sliding Circle Thumb */}
+                <div
+                  style={{
+                    width: '16px',
+                    height: '16px',
+                    borderRadius: '50%',
+                    backgroundColor: '#ffffff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.4)',
+                    transform: isOnline ? 'translateX(16px)' : 'translateX(0px)',
+                    transition: 'transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                />
+              </div>
+
+              {/* Status Label Text */}
               <span
                 style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  backgroundColor: isOnline ? '#10b981' : '#ef4444',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: isOnline ? '#10b981' : '#ef4444',
                 }}
-              />
-              {isOnline ? 'Online (Green)' : 'Offline (Red)'}
-            </button>
+              >
+                {isOnline ? 'Online' : 'Offline'}
+              </span>
+            </div>
           </div>
         </div>
 
