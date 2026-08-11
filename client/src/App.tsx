@@ -55,6 +55,26 @@ export const MainChatView: React.FC = () => {
     }
   };
 
+  // Mobile Touch Swipe Gesture (Swipe Right to return to sidebar)
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      setTouchStart(e.touches[0].clientX);
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStart !== null && e.changedTouches.length === 1) {
+      const touchEnd = e.changedTouches[0].clientX;
+      const swipeDistance = touchEnd - touchStart;
+      if (isMobile && showMobileChat && swipeDistance > 80) {
+        setShowMobileChat(false);
+      }
+    }
+    setTouchStart(null);
+  };
+
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100dvh', overflow: 'hidden' }}>
       {/* Sidebar - Visible on Desktop or when mobile chat is not focused */}
@@ -72,7 +92,11 @@ export const MainChatView: React.FC = () => {
 
       {/* Main Chat Thread Area - Visible on Desktop or when mobile chat is focused */}
       {(!isMobile || showMobileChat) && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', height: '100%' }}>
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', height: '100%' }}
+        >
           {activeConversation ? (
             <>
               <ChatHeader

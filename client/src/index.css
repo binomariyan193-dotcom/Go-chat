@@ -81,3 +81,20 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-color);
 }
+
+/* Touch Responsive Feedback Styles for Mobile */
+button, .conversation-item, [role="button"] {
+  touch-action: manipulation;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+button:active, .conversation-item:active, [role="button"]:active {
+  transform: scale(0.97);
+  opacity: 0.88;
+}
+
+/* Smooth Touch Momentum Scrolling for Mobile Browsers */
+.scrollable-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}

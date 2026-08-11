@@ -32,7 +32,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   }
 
   return (
-    <div className="chat-wallpaper" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+    <div className="chat-wallpaper scrollable-touch" style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
       {messages.length === 0 ? (
         <div style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '80px' }}>
           Say 👋 to start the conversation!
