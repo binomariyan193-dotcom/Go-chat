@@ -11,6 +11,7 @@ import { Button } from '../common/Button';
 import { LoopInLogo } from '../common/LoopInLogo';
 
 import { useSocketContext } from '../../context/SocketContext';
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '../../utils/haptics';
 
 interface SidebarProps {
   conversations: Conversation[];
@@ -58,6 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleToggleStatus = async () => {
     if (!user) return;
+    hapticMedium();
     const nextStatus = isOnline ? 'offline' : 'online';
     try {
       const response = await api.put('/auth/profile', { status: nextStatus });
@@ -142,6 +144,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Respond to request (accept / reject)
   const handleRespondRequest = async (requestId: string, action: 'accept' | 'reject') => {
     try {
+      if (action === 'accept') hapticSuccess();
       const response = await api.post('/friends/respond', { requestId, action });
       fetchPendingRequests();
       fetchFriendsList();
@@ -159,6 +162,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Open / Re-open chat room with a friend (even if previously deleted)
   const handleOpenMessage = async (targetUserId: string) => {
     try {
+      hapticLight();
       const response = await api.post('/chat/dm', { targetUserId });
       setIsModalOpen(false);
       onSelectConversation(response.data);
@@ -171,6 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Unfriend user
   const handleUnfriend = async (targetUserId: string, username: string) => {
     if (!window.confirm(`Are you sure you want to unfriend "${username}"?`)) return;
+    hapticWarning();
     try {
       await api.post('/friends/unfriend', { targetUserId });
       fetchFriendsList();
@@ -358,7 +363,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <div
                 key={conv.id}
-                onClick={() => onSelectConversation(conv)}
+                onClick={() => {
+                  hapticLight();
+                  onSelectConversation(conv);
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',

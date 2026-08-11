@@ -4,6 +4,7 @@ import { Conversation, Message } from '../types/chat';
 import { useSocketContext } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { playNotificationSound } from '../utils/sound';
+import { hapticNotification, hapticMedium, hapticWarning } from '../utils/haptics';
 
 export const useChat = () => {
   const { user } = useAuth();
@@ -151,6 +152,7 @@ export const useChat = () => {
       // Play audio notification ONLY if user status is NOT offline
       if (user.status !== 'offline') {
         playNotificationSound();
+        hapticNotification();
       }
 
       if (activeConversationRef.current && convId === activeConversationRef.current.id) {
@@ -271,6 +273,7 @@ export const useChat = () => {
   const sendMessage = (textContent?: string, imageUrl?: string) => {
     if (!socket || !activeConversation || !user) return;
 
+    hapticMedium();
     socket.emit('send_message', {
       conversationId: activeConversation.id,
       senderId: user.id,
@@ -290,6 +293,7 @@ export const useChat = () => {
 
   const deleteMessage = (messageId: string) => {
     if (!socket || !user) return;
+    hapticWarning();
     socket.emit('delete_message', {
       messageId,
       senderId: user.id,
@@ -298,6 +302,7 @@ export const useChat = () => {
 
   const deleteConversation = async (conversationId: string) => {
     try {
+      hapticWarning();
       await api.delete(`/chat/conversations/${conversationId}`);
       if (socket) {
         socket.emit('delete_conversation', { conversationId });

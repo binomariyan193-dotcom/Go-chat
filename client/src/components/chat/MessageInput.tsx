@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Image, Send, X, Loader2 } from 'lucide-react';
 import { useImageUpload } from '../../hooks/useImageUpload';
+import { hapticMedium } from '../../utils/haptics';
 
 interface MessageInputProps {
   onSendMessage: (text?: string, imageUrl?: string) => void;
@@ -31,6 +32,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSendMessage }) => 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() && !selectedFile) return;
+
+    hapticMedium();
 
     let imageUrl: string | undefined = undefined;
 
