@@ -95,8 +95,10 @@ export const useChat = () => {
         return;
       }
 
-      // Play audio notification
-      playNotificationSound();
+      // Play audio notification ONLY if user status is NOT offline
+      if (user.status !== 'offline') {
+        playNotificationSound();
+      }
 
       if (activeConversation && newMessage.conversationId === activeConversation.id) {
         setMessages((prev) => [...prev, newMessage]);
@@ -140,28 +142,53 @@ export const useChat = () => {
       setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
     };
 
+    const handleUserStatusChanged = (data: { userId: string; status: 'online' | 'offline' }) => {
+      setConversations((prev) =>
+        prev.map((c) => ({
+          ...c,
+          members: c.members.map((m) =>
+            m.user.id === data.userId ? { ...m, user: { ...m.user, status: data.status } } : m
+          ),
+        }))
+      );
+
+      setActiveConversationState((prev) => {
+        if (!prev) return prev;
+        const hasMember = prev.members.some((m) => m.user.id === data.userId);
+        if (!hasMember) return prev;
+        return {
+          ...prev,
+          members: prev.members.map((m) =>
+            m.user.id === data.userId ? { ...m, user: { ...m.user, status: data.status } } : m
+          ),
+        };
+      });
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('message_edited', handleMessageEdited);
     socket.on('conversation_deleted', handleConversationDeleted);
     socket.on('message_deleted', handleMessageDeleted);
+    socket.on('user_status_changed', handleUserStatusChanged);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('message_edited', handleMessageEdited);
       socket.off('conversation_deleted', handleConversationDeleted);
       socket.off('message_deleted', handleMessageDeleted);
+      socket.off('user_status_changed', handleUserStatusChanged);
     };
   }, [socket, activeConversation, user]);
 
-  // Update document title for unread indicator
+  // Update document title for unread indicator (suppressed if user status is offline)
   useEffect(() => {
     const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
-    if (totalUnread > 0) {
-      document.title = `(${totalUnread}) New Message - Chat App`;
+    if (totalUnread > 0 && user?.status !== 'offline') {
+      document.title = `(${totalUnread}) New Message - LoopIN`;
     } else {
-      document.title = 'Real-Time Chat Application';
+      document.title = 'LoopIN - Real-Time Messaging & Photo Sharing';
     }
-  }, [unreadCounts]);
+  }, [unreadCounts, user?.status]);
 
   const setActiveConversation = (conv: Conversation) => {
     setConversations((prev) => {

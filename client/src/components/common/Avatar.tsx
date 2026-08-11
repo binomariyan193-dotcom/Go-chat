@@ -10,9 +10,9 @@ interface AvatarProps {
 
 export const Avatar: React.FC<AvatarProps> = ({ src, name, status, size = 'md', onClick }) => {
   const statusColors = {
-    online: '#10b981',
+    online: '#10b981', // Green
     away: '#f59e0b',
-    offline: '#6b7280',
+    offline: '#ef4444', // Red
   };
 
   const fallbackInitial = name ? name.charAt(0).toUpperCase() : '?';

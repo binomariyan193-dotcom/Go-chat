@@ -10,6 +10,8 @@ import { api } from '../../services/api';
 import { Button } from '../common/Button';
 import { LoopInLogo } from '../common/LoopInLogo';
 
+import { useSocketContext } from '../../context/SocketContext';
+
 interface SidebarProps {
   conversations: Conversation[];
   activeConversation: Conversation | null;
@@ -45,11 +47,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRefreshConversations,
   onDeleteConversation,
 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const { socket } = useSocketContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isMyAvatarLightboxOpen, setIsMyAvatarLightboxOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'friends' | 'search' | 'requests'>('friends');
+
+  const isOnline = user?.status !== 'offline';
+
+  const handleToggleStatus = async () => {
+    if (!user) return;
+    const nextStatus = isOnline ? 'offline' : 'online';
+    try {
+      const response = await api.put('/auth/profile', { status: nextStatus });
+      updateUser(response.data);
+      if (socket) {
+        socket.emit('update_status', { userId: user.id, status: nextStatus });
+      }
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
+  };
 
   // Friends list state
   const [friendsList, setFriendsList] = useState<FriendItem[]>([]);
@@ -187,16 +206,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Avatar
             src={user?.avatarUrl}
             name={user?.username || ''}
-            status="online"
+            status={isOnline ? 'online' : 'offline'}
             onClick={() => user?.avatarUrl && setIsMyAvatarLightboxOpen(true)}
           />
           <div style={{ minWidth: 0, flex: 1 }}>
             <h4 style={{ fontSize: '0.95rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {user?.username}
             </h4>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              {user?.status || 'Online'}
-            </span>
+
+            {/* Online / Offline Status Toggle Button */}
+            <button
+              onClick={handleToggleStatus}
+              style={{
+                backgroundColor: isOnline ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: `1px solid ${isOnline ? '#10b981' : '#ef4444'}`,
+                color: isOnline ? '#10b981' : '#ef4444',
+                borderRadius: '12px',
+                padding: '2px 8px',
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '0.72rem',
+                fontWeight: 600,
+                marginTop: '2px',
+              }}
+              title={isOnline ? 'Set Offline (Red dot, mutes notifications)' : 'Set Online (Green dot, active notifications)'}
+            >
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  backgroundColor: isOnline ? '#10b981' : '#ef4444',
+                }}
+              />
+              {isOnline ? 'Online (Green)' : 'Offline (Red)'}
+            </button>
           </div>
         </div>
 

@@ -19,7 +19,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ activeConversation, onBa
 
   const otherMember = activeConversation.members.find((m) => m.user.id !== user?.id)?.user;
   const title = activeConversation.isGroup ? activeConversation.name : otherMember?.username || 'Chat';
-  const status = otherMember?.status || 'offline';
+  const status = (otherMember?.status as 'online' | 'offline' | 'away') || 'offline';
 
   return (
     <>

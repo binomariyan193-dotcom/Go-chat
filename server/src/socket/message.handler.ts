@@ -52,4 +52,8 @@ export const registerMessageHandler = (io: Server, socket: Socket) => {
       socket.emit('error', { message: error.message || 'Failed to delete message' });
     }
   });
+
+  socket.on('update_status', (data: { userId: string; status: 'online' | 'offline' }) => {
+    io.emit('user_status_changed', data);
+  });
 };
