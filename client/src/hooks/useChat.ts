@@ -44,15 +44,23 @@ export const useChat = () => {
   useEffect(() => {
     if (!activeConversation) return;
 
+    const controller = new AbortController();
+
     const fetchMessages = async () => {
       setIsLoadingMessages(true);
       try {
-        const response = await api.get(`/chat/conversations/${activeConversation.id}/messages`);
+        const response = await api.get(`/chat/conversations/${activeConversation.id}/messages`, {
+          signal: controller.signal,
+        });
         setMessages(response.data);
-      } catch (err) {
-        console.error('Failed to fetch messages:', err);
+      } catch (err: any) {
+        if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
+          console.error('Failed to fetch messages:', err);
+        }
       } finally {
-        setIsLoadingMessages(false);
+        if (!controller.signal.aborted) {
+          setIsLoadingMessages(false);
+        }
       }
     };
 
@@ -60,6 +68,10 @@ export const useChat = () => {
 
     // Clear unread count for active conversation
     setUnreadCounts((prev) => ({ ...prev, [activeConversation.id]: 0 }));
+
+    return () => {
+      controller.abort();
+    };
   }, [activeConversation]);
 
   // Listen for real-time socket messages & edits
