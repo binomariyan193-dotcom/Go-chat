@@ -14,7 +14,7 @@ const server = http.createServer(app);
 
 // CORS configuration for REST API & Socket.io
 const corsOptions = {
-  origin: [ENV.FRONTEND_URL, 'http://localhost:5173'],
+  origin: true, // Allow configured origins and dynamically credentials
   credentials: true,
 };
 
@@ -32,6 +32,10 @@ app.get('/health', (_req, res) => {
   res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+app.get('/', (_req, res) => {
+  res.status(200).send('LoopIN API Server is running');
+});
+
 // WebSockets Setup
 const io = new Server(server, {
   cors: corsOptions,
@@ -39,7 +43,8 @@ const io = new Server(server, {
 
 setupSocketHandlers(io);
 
-server.listen(ENV.PORT, () => {
-  console.log(`🚀 Chat Server listening on port ${ENV.PORT}`);
-  console.log(`📡 Accepting connections from: ${ENV.FRONTEND_URL}`);
+const PORT = Number(process.env.PORT) || 5000;
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Chat Server listening on 0.0.0.0:${PORT}`);
 });
