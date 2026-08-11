@@ -1,0 +1,83 @@
+:root {
+  --bg-primary: #03081C; /* Midnight / Deep Navy Blue */
+  --bg-secondary: #08102B; /* Dark Navy panel background */
+  --bg-tertiary: #0F1C47; /* Hover & list item background */
+  --chat-bubble-sent: #0A2A66; /* Sent message bubble */
+  --chat-bubble-sent-gradient: linear-gradient(135deg, #0A2A66 0%, #123E8C 100%);
+  --chat-bubble-received: #0C1838; /* Received message bubble */
+  --accent-color: #123E8C; /* Secondary deep blue highlights */
+  --accent-hover: #1D4ED8;
+  --accent-bright: #2563EB;
+  --text-primary: #F8FAFC;
+  --text-secondary: #94A3B8;
+  --border-color: rgba(18, 62, 140, 0.28);
+  --glass-bg: rgba(8, 16, 43, 0.85);
+  --glass-border: rgba(18, 62, 140, 0.35);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100vw;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-family: var(--font-family);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Prevent iOS Safari input zoom */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+.glass-panel {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--glass-border);
+}
+
+/* WhatsApp-inspired subtle chat background pattern */
+.chat-wallpaper {
+  background-color: #03081C;
+  background-image: radial-gradient(rgba(18, 62, 140, 0.18) 1.2px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
