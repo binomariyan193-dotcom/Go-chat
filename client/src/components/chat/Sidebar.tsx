@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Conversation, User } from '../../types/chat';
 import { Avatar } from '../common/Avatar';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, UserPlus, Check, X, Search, Clock, Settings, Trash2 } from 'lucide-react';
+import { LogOut, UserPlus, Check, X, Search, Clock, Settings, Trash2, Users, MessageSquare, UserMinus } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { EditProfileModal } from '../profile/EditProfileModal';
 import { ImageLightbox } from './ImageLightbox';
@@ -30,6 +30,14 @@ interface PendingRequest {
   sender: User;
 }
 
+interface FriendItem {
+  id: string;
+  username: string;
+  avatarUrl?: string;
+  status?: string;
+  requestId: string;
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   conversations,
   activeConversation,
@@ -41,7 +49,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isMyAvatarLightboxOpen, setIsMyAvatarLightboxOpen] = useState(false);
-  const [modalTab, setModalTab] = useState<'search' | 'requests'>('search');
+  const [modalTab, setModalTab] = useState<'friends' | 'search' | 'requests'>('friends');
+
+  // Friends list state
+  const [friendsList, setFriendsList] = useState<FriendItem[]>([]);
+  const [isLoadingFriends, setIsLoadingFriends] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +62,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Pending requests state
   const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+
+  const fetchFriendsList = async () => {
+    setIsLoadingFriends(true);
+    try {
+      const response = await api.get('/friends/list');
+      setFriendsList(response.data);
+    } catch (err) {
+      console.error('Failed to fetch friends list:', err);
+    } finally {
+      setIsLoadingFriends(false);
+    }
+  };
 
   const fetchPendingRequests = async () => {
     try {
@@ -63,6 +87,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   useEffect(() => {
     if (user) {
       fetchPendingRequests();
+      fetchFriendsList();
     }
   }, [user]);
 
@@ -100,6 +125,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     try {
       const response = await api.post('/friends/respond', { requestId, action });
       fetchPendingRequests();
+      fetchFriendsList();
       if (onRefreshConversations) onRefreshConversations();
 
       if (action === 'accept' && response.data.conversation) {
@@ -108,6 +134,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
     } catch (err) {
       console.error('Failed to respond to request:', err);
+    }
+  };
+
+  // Open / Re-open chat room with a friend (even if previously deleted)
+  const handleOpenMessage = async (targetUserId: string) => {
+    try {
+      const response = await api.post('/chat/dm', { targetUserId });
+      setIsModalOpen(false);
+      onSelectConversation(response.data);
+      if (onRefreshConversations) onRefreshConversations();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to open chat');
+    }
+  };
+
+  // Unfriend user
+  const handleUnfriend = async (targetUserId: string, username: string) => {
+    if (!window.confirm(`Are you sure you want to unfriend "${username}"?`)) return;
+    try {
+      await api.post('/friends/unfriend', { targetUserId });
+      fetchFriendsList();
+      fetchPendingRequests();
+      if (onRefreshConversations) onRefreshConversations();
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to unfriend user');
     }
   };
 
@@ -181,6 +232,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           onClick={() => {
             setIsModalOpen(true);
+            fetchFriendsList();
             fetchPendingRequests();
           }}
           style={{
@@ -198,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             position: 'relative',
           }}
         >
-          <UserPlus size={16} /> Add Friend
+          <UserPlus size={16} /> Add / Friends
           {pendingRequests.length > 0 && (
             <span
               style={{
@@ -224,7 +276,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div style={{ flex: 1, overflowY: 'auto', padding: '0 8px' }}>
         {conversations.length === 0 ? (
           <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginTop: '40px', fontSize: '0.85rem' }}>
-            No chats yet. Add friends to start chatting!
+            No active chats. Click "Add / Friends" to message your contacts!
           </p>
         ) : (
           conversations.map((conv) => {
@@ -318,49 +370,151 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Friend Search & Requests Modal */}
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Friends & Contacts">
         {/* Navigation Tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '8px' }}>
+          <button
+            onClick={() => {
+              setModalTab('friends');
+              fetchFriendsList();
+            }}
+            style={{
+              flex: 1,
+              padding: '8px 4px',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              backgroundColor: modalTab === 'friends' ? 'var(--accent-color)' : 'transparent',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '4px',
+            }}
+          >
+            <Users size={15} /> Friends ({friendsList.length})
+          </button>
           <button
             onClick={() => setModalTab('search')}
             style={{
               flex: 1,
-              padding: '8px',
+              padding: '8px 4px',
               borderRadius: 'var(--radius-sm)',
               border: 'none',
               backgroundColor: modalTab === 'search' ? 'var(--accent-color)' : 'transparent',
               color: '#fff',
               fontWeight: 600,
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
+              gap: '4px',
             }}
           >
-            <Search size={16} /> Find Users
+            <Search size={15} /> Find Users
           </button>
           <button
             onClick={() => setModalTab('requests')}
             style={{
               flex: 1,
-              padding: '8px',
+              padding: '8px 4px',
               borderRadius: 'var(--radius-sm)',
               border: 'none',
               backgroundColor: modalTab === 'requests' ? 'var(--accent-color)' : 'transparent',
               color: '#fff',
               fontWeight: 600,
-              fontSize: '0.85rem',
+              fontSize: '0.82rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: '6px',
-              position: 'relative',
+              gap: '4px',
             }}
           >
-            <Clock size={16} /> Requests {pendingRequests.length > 0 && `(${pendingRequests.length})`}
+            <Clock size={15} /> Requests {pendingRequests.length > 0 && `(${pendingRequests.length})`}
           </button>
         </div>
+
+        {/* Tab 1: Friends List */}
+        {modalTab === 'friends' && (
+          <div style={{ maxHeight: '320px', overflowY: 'auto' }}>
+            {isLoadingFriends ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px 0', fontSize: '0.85rem' }}>
+                Loading friends...
+              </p>
+            ) : friendsList.length === 0 ? (
+              <p style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '20px 0', fontSize: '0.85rem' }}>
+                No friends added yet. Use "Find Users" to search and add contacts!
+              </p>
+            ) : (
+              friendsList.map((f) => (
+                <div
+                  key={f.id}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 12px',
+                    borderRadius: 'var(--radius-md)',
+                    backgroundColor: 'var(--bg-primary)',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <Avatar src={f.avatarUrl} name={f.username} status={(f.status as 'online' | 'offline' | 'away') || 'offline'} size="sm" />
+                    <div>
+                      <h5 style={{ fontSize: '0.88rem', fontWeight: 600 }}>{f.username}</h5>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{f.status || 'Friend'}</span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    <button
+                      onClick={() => handleOpenMessage(f.id)}
+                      style={{
+                        backgroundColor: 'var(--accent-color)',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '6px 10px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                      }}
+                      title="Open or restore chat room"
+                    >
+                      <MessageSquare size={14} /> Message
+                    </button>
+
+                    <button
+                      onClick={() => handleUnfriend(f.id, f.username)}
+                      style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                        color: '#ef4444',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '6px 8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                      }}
+                      title="Unfriend contact"
+                    >
+                      <UserMinus size={14} /> Unfriend
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
 
         {/* Tab 1: Search Users */}
         {modalTab === 'search' && (

@@ -50,3 +50,26 @@ export const handleRespondRequest = async (req: AuthenticatedRequest, res: Respo
     return res.status(400).json({ error: error.message });
   }
 };
+
+export const handleGetFriends = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const friends = await friendService.getAcceptedFriends(userId);
+    return res.status(200).json(friends);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
+export const handleUnfriend = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { targetUserId } = req.body;
+    if (!targetUserId) return res.status(400).json({ error: 'targetUserId is required' });
+
+    const result = await friendService.unfriendUser(userId, targetUserId);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+};

@@ -125,3 +125,41 @@ export const respondToFriendRequest = async (requestId: string, userId: string, 
     return { status: 'rejected' };
   }
 };
+
+export const getAcceptedFriends = async (userId: string) => {
+  const { data: acceptedRows, error } = await supabaseAdmin
+    .from('FriendRequest')
+    .select(`
+      id,
+      senderId,
+      receiverId,
+      sender:User!senderId (id, username, avatarUrl, status),
+      receiver:User!receiverId (id, username, avatarUrl, status)
+    `)
+    .or(`senderId.eq.${userId},receiverId.eq.${userId}`)
+    .eq('status', 'accepted');
+
+  if (error) throw new Error(`Failed to fetch friends: ${error.message}`);
+  if (!acceptedRows) return [];
+
+  return acceptedRows.map((r: any) => {
+    const friend = r.senderId === userId ? r.receiver : r.sender;
+    return {
+      id: friend.id,
+      username: friend.username,
+      avatarUrl: friend.avatarUrl,
+      status: friend.status,
+      requestId: r.id,
+    };
+  });
+};
+
+export const unfriendUser = async (currentUserId: string, targetUserId: string) => {
+  const { error } = await supabaseAdmin
+    .from('FriendRequest')
+    .delete()
+    .or(`and(senderId.eq.${currentUserId},receiverId.eq.${targetUserId}),and(senderId.eq.${targetUserId},receiverId.eq.${currentUserId})`);
+
+  if (error) throw new Error(`Failed to unfriend user: ${error.message}`);
+  return { success: true };
+};
