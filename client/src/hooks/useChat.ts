@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { Conversation, Message } from '../types/chat';
 import { useSocketContext } from '../context/SocketContext';
@@ -14,51 +14,96 @@ export const useChat = () => {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState<{ [convId: string]: number }>({});
 
-  // Fetch all user conversations
-  const fetchConversations = async () => {
+  // Client-side message cache for ZERO LAG (0ms switching) between conversations
+  const messageCacheRef = useRef<{ [convId: string]: Message[] }>({});
+  const activeConversationRef = useRef<Conversation | null>(activeConversation);
+
+  useEffect(() => {
+    activeConversationRef.current = activeConversation;
+  }, [activeConversation]);
+
+  // Fetch all user conversations (silent mode prevents flickering UI)
+  const fetchConversations = async (silent = false) => {
     try {
       const response = await api.get('/chat/conversations');
       setConversations(response.data);
-      if (response.data.length > 0 && !activeConversation) {
+      if (response.data.length > 0 && !activeConversationRef.current && !silent) {
         setActiveConversationState(response.data[0]);
       }
     } catch (err) {
-      console.error('Failed to fetch conversations:', err);
+      if (!silent) {
+        console.error('Failed to fetch conversations:', err);
+      }
     }
   };
 
+  // Initial load and periodic 15-second background auto-refresh
   useEffect(() => {
     if (!user) return;
     fetchConversations();
+
+    // Auto-refresh in background every 15 seconds for zero-lag sync
+    const autoRefreshInterval = setInterval(() => {
+      fetchConversations(true);
+    }, 15000);
+
+    return () => clearInterval(autoRefreshInterval);
   }, [user]);
 
-  // Join all conversation rooms via socket
+  // Socket reconnect auto-refresh & Join all conversation rooms
   useEffect(() => {
     if (!socket || conversations.length === 0) return;
+
     conversations.forEach((c) => {
       socket.emit('join_room', c.id);
     });
+
+    const handleConnect = () => {
+      fetchConversations(true);
+      conversations.forEach((c) => {
+        socket.emit('join_room', c.id);
+      });
+    };
+
+    socket.on('connect', handleConnect);
+    return () => {
+      socket.off('connect', handleConnect);
+    };
   }, [socket, conversations]);
 
-  // Fetch messages for active conversation
+  // Fetch messages for active conversation with ZERO-LAG instant cache
   useEffect(() => {
     if (!activeConversation) return;
+
+    const convId = activeConversation.id;
+
+    // ⚡ ZERO LAG: Immediately render cached messages if available
+    if (messageCacheRef.current[convId]) {
+      setMessages(messageCacheRef.current[convId]);
+      setIsLoadingMessages(false);
+    } else {
+      setIsLoadingMessages(true);
+    }
 
     const controller = new AbortController();
 
     const fetchMessages = async () => {
-      setIsLoadingMessages(true);
       try {
-        const response = await api.get(`/chat/conversations/${activeConversation.id}/messages`, {
+        const response = await api.get(`/chat/conversations/${convId}/messages`, {
           signal: controller.signal,
         });
-        setMessages(response.data);
+
+        // Update in-memory cache & active messages state
+        messageCacheRef.current[convId] = response.data;
+        if (activeConversationRef.current?.id === convId) {
+          setMessages(response.data);
+        }
       } catch (err: any) {
         if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
           console.error('Failed to fetch messages:', err);
         }
       } finally {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && activeConversationRef.current?.id === convId) {
           setIsLoadingMessages(false);
         }
       }
@@ -67,7 +112,7 @@ export const useChat = () => {
     fetchMessages();
 
     // Clear unread count for active conversation
-    setUnreadCounts((prev) => ({ ...prev, [activeConversation.id]: 0 }));
+    setUnreadCounts((prev) => ({ ...prev, [convId]: 0 }));
 
     return () => {
       controller.abort();
@@ -79,17 +124,25 @@ export const useChat = () => {
     if (!socket || !user) return;
 
     const handleNewMessage = (newMessage: Message) => {
+      const convId = newMessage.conversationId;
+
+      // Update message cache for instant room switching
+      const existingCache = messageCacheRef.current[convId] || [];
+      if (!existingCache.some((m) => m.id === newMessage.id)) {
+        messageCacheRef.current[convId] = [...existingCache, newMessage];
+      }
+
       // Don't trigger unread for own messages, but bump conversation to top
       if (newMessage.senderId === user.id) {
-        if (activeConversation && newMessage.conversationId === activeConversation.id) {
-          setMessages((prev) => [...prev, newMessage]);
+        if (activeConversationRef.current && convId === activeConversationRef.current.id) {
+          setMessages((prev) => (prev.some((m) => m.id === newMessage.id) ? prev : [...prev, newMessage]));
         }
         setConversations((prev) => {
-          const target = prev.find((c) => c.id === newMessage.conversationId);
+          const target = prev.find((c) => c.id === convId);
           if (!target) return prev;
 
           const updatedConv = { ...target, messages: [newMessage], updatedAt: newMessage.createdAt };
-          const remaining = prev.filter((c) => c.id !== newMessage.conversationId);
+          const remaining = prev.filter((c) => c.id !== convId);
           return [updatedConv, ...remaining];
         });
         return;
@@ -100,34 +153,41 @@ export const useChat = () => {
         playNotificationSound();
       }
 
-      if (activeConversation && newMessage.conversationId === activeConversation.id) {
-        setMessages((prev) => [...prev, newMessage]);
+      if (activeConversationRef.current && convId === activeConversationRef.current.id) {
+        setMessages((prev) => (prev.some((m) => m.id === newMessage.id) ? prev : [...prev, newMessage]));
       } else {
         // Increment unread count for non-active conversation
         setUnreadCounts((prev) => ({
           ...prev,
-          [newMessage.conversationId]: (prev[newMessage.conversationId] || 0) + 1,
+          [convId]: (prev[convId] || 0) + 1,
         }));
       }
 
       // Update conversation preview message and bump to top
       setConversations((prev) => {
-        const target = prev.find((c) => c.id === newMessage.conversationId);
+        const target = prev.find((c) => c.id === convId);
         if (!target) return prev;
 
         const updatedConv = { ...target, messages: [newMessage], updatedAt: newMessage.createdAt };
-        const remaining = prev.filter((c) => c.id !== newMessage.conversationId);
+        const remaining = prev.filter((c) => c.id !== convId);
         return [updatedConv, ...remaining];
       });
     };
 
     const handleMessageEdited = (updatedMessage: Message) => {
+      const convId = updatedMessage.conversationId;
+      if (messageCacheRef.current[convId]) {
+        messageCacheRef.current[convId] = messageCacheRef.current[convId].map((m) =>
+          m.id === updatedMessage.id ? updatedMessage : m
+        );
+      }
       setMessages((prev) =>
         prev.map((m) => (m.id === updatedMessage.id ? updatedMessage : m))
       );
     };
 
     const handleConversationDeleted = (data: { conversationId: string }) => {
+      delete messageCacheRef.current[data.conversationId];
       setConversations((prev) => prev.filter((c) => c.id !== data.conversationId));
       setActiveConversationState((prev) => {
         if (prev?.id === data.conversationId) {
@@ -139,6 +199,10 @@ export const useChat = () => {
     };
 
     const handleMessageDeleted = (data: { messageId: string; conversationId: string }) => {
+      const convId = data.conversationId;
+      if (messageCacheRef.current[convId]) {
+        messageCacheRef.current[convId] = messageCacheRef.current[convId].filter((m) => m.id !== data.messageId);
+      }
       setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
     };
 
@@ -178,7 +242,7 @@ export const useChat = () => {
       socket.off('message_deleted', handleMessageDeleted);
       socket.off('user_status_changed', handleUserStatusChanged);
     };
-  }, [socket, activeConversation, user]);
+  }, [socket, user]);
 
   // Update document title for unread indicator (suppressed if user status is offline)
   useEffect(() => {
@@ -238,6 +302,7 @@ export const useChat = () => {
       if (socket) {
         socket.emit('delete_conversation', { conversationId });
       }
+      delete messageCacheRef.current[conversationId];
       setConversations((prev) => prev.filter((c) => c.id !== conversationId));
       setUnreadCounts((prev) => {
         const updated = { ...prev };
