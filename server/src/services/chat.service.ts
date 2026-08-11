@@ -239,4 +239,36 @@ export const editMessage = async (messageId: string, senderId: string, textConte
   return updatedMsg;
 };
 
+export const deleteConversation = async (conversationId: string, userId: string) => {
+  // 1. Verify user is a member of the conversation
+  const { data: member, error: memberError } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('*')
+    .eq('conversationId', conversationId)
+    .eq('userId', userId)
+    .single();
+
+  if (memberError || !member) {
+    throw new Error('Unauthorized or conversation not found');
+  }
+
+  // 2. Delete all messages in the conversation
+  await supabaseAdmin.from('Message').delete().eq('conversationId', conversationId);
+
+  // 3. Delete all conversation members
+  await supabaseAdmin.from('ConversationMember').delete().eq('conversationId', conversationId);
+
+  // 4. Delete the conversation record
+  const { error: deleteError } = await supabaseAdmin
+    .from('Conversation')
+    .delete()
+    .eq('id', conversationId);
+
+  if (deleteError) {
+    throw new Error(`Failed to delete conversation: ${deleteError.message}`);
+  }
+
+  return { conversationId };
+};
+
 

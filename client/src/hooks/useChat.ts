@@ -125,12 +125,25 @@ export const useChat = () => {
       );
     };
 
+    const handleConversationDeleted = (data: { conversationId: string }) => {
+      setConversations((prev) => prev.filter((c) => c.id !== data.conversationId));
+      setActiveConversationState((prev) => {
+        if (prev?.id === data.conversationId) {
+          setMessages([]);
+          return null;
+        }
+        return prev;
+      });
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('message_edited', handleMessageEdited);
+    socket.on('conversation_deleted', handleConversationDeleted);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('message_edited', handleMessageEdited);
+      socket.off('conversation_deleted', handleConversationDeleted);
     };
   }, [socket, activeConversation, user]);
 
@@ -169,6 +182,29 @@ export const useChat = () => {
     });
   };
 
+  const deleteConversation = async (conversationId: string) => {
+    try {
+      await api.delete(`/chat/conversations/${conversationId}`);
+      if (socket) {
+        socket.emit('delete_conversation', { conversationId });
+      }
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      setUnreadCounts((prev) => {
+        const updated = { ...prev };
+        delete updated[conversationId];
+        return updated;
+      });
+      if (activeConversation?.id === conversationId) {
+        const remaining = conversations.filter((c) => c.id !== conversationId);
+        setActiveConversationState(remaining.length > 0 ? remaining[0] : null);
+        setMessages([]);
+      }
+    } catch (err: any) {
+      console.error('Failed to delete conversation:', err);
+      alert(err.response?.data?.error || 'Failed to delete conversation');
+    }
+  };
+
   // Merge unreadCounts into conversations array
   const conversationsWithUnread = conversations.map((c) => ({
     ...c,
@@ -183,6 +219,7 @@ export const useChat = () => {
     isLoadingMessages,
     sendMessage,
     editMessage,
+    deleteConversation,
     refreshConversations: fetchConversations,
   };
 };

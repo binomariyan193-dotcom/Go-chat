@@ -3,14 +3,15 @@ import { Conversation } from '../../types/chat';
 import { Avatar } from '../common/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Trash2 } from 'lucide-react';
 
 interface ChatHeaderProps {
   activeConversation: Conversation | null;
   onBack?: () => void;
+  onDelete?: () => void;
 }
 
-export const ChatHeader: React.FC<ChatHeaderProps> = ({ activeConversation, onBack }) => {
+export const ChatHeader: React.FC<ChatHeaderProps> = ({ activeConversation, onBack, onDelete }) => {
   const { user } = useAuth();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
@@ -73,6 +74,33 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({ activeConversation, onBa
             </div>
           </div>
         </div>
+
+        {/* Action Buttons */}
+        {onDelete && (
+          <button
+            onClick={() => {
+              if (window.confirm(`Delete conversation with "${title}"? This action cannot be undone.`)) {
+                onDelete();
+              }
+            }}
+            title="Delete Chat Room"
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              padding: '6px',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+          >
+            <Trash2 size={20} />
+          </button>
+        )}
       </div>
 
       {otherMember && (

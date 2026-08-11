@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Conversation, User } from '../../types/chat';
 import { Avatar } from '../common/Avatar';
 import { useAuth } from '../../context/AuthContext';
-import { LogOut, UserPlus, Check, X, Search, Clock, Settings } from 'lucide-react';
+import { LogOut, UserPlus, Check, X, Search, Clock, Settings, Trash2 } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { EditProfileModal } from '../profile/EditProfileModal';
 import { ImageLightbox } from './ImageLightbox';
@@ -15,6 +15,7 @@ interface SidebarProps {
   activeConversation: Conversation | null;
   onSelectConversation: (conv: Conversation) => void;
   onRefreshConversations?: () => void;
+  onDeleteConversation?: (convId: string) => void;
 }
 
 interface SearchedUser extends User {
@@ -34,6 +35,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   activeConversation,
   onSelectConversation,
   onRefreshConversations,
+  onDeleteConversation,
 }) => {
   const { user, logout } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -245,7 +247,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   backgroundColor: isSelected ? 'var(--bg-tertiary)' : 'transparent',
                   transition: 'background 0.2s ease',
                   marginBottom: '4px',
+                  position: 'relative',
                 }}
+                className="conversation-item"
               >
                 <Avatar
                   src={otherMember?.avatarUrl}
@@ -277,6 +281,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {lastMessage}
                   </p>
                 </div>
+
+                {/* Delete Conversation Button */}
+                {onDeleteConversation && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm(`Delete conversation with "${chatName}"? This action cannot be undone.`)) {
+                        onDeleteConversation(conv.id);
+                      }
+                    }}
+                    title="Delete Chat Room"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      borderRadius: 'var(--radius-sm)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
             );
           })

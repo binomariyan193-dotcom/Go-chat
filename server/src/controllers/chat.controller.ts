@@ -46,3 +46,14 @@ export const startDirectMessage = async (req: AuthenticatedRequest, res: Respons
     return res.status(500).json({ error: error.message });
   }
 };
+
+export const deleteConversation = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { conversationId } = req.params;
+    const result = await chatService.deleteConversation(conversationId, userId);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    return res.status(500).json({ error: error.message });
+  }
+};

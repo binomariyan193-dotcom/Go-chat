@@ -37,4 +37,8 @@ export const registerMessageHandler = (io: Server, socket: Socket) => {
   socket.on('typing', (data: { conversationId: string; username: string; isTyping: boolean }) => {
     socket.to(data.conversationId).emit('user_typing', data);
   });
+
+  socket.on('delete_conversation', (data: { conversationId: string }) => {
+    io.to(data.conversationId).emit('conversation_deleted', { conversationId: data.conversationId });
+  });
 };

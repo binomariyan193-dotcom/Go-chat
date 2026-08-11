@@ -13,8 +13,17 @@ import { useChat } from './hooks/useChat';
 import { Conversation } from './types/chat';
 
 export const MainChatView: React.FC = () => {
-  const { conversations, activeConversation, setActiveConversation, messages, isLoadingMessages, sendMessage, editMessage, refreshConversations } =
-    useChat();
+  const {
+    conversations,
+    activeConversation,
+    setActiveConversation,
+    messages,
+    isLoadingMessages,
+    sendMessage,
+    editMessage,
+    deleteConversation,
+    refreshConversations,
+  } = useChat();
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
   // Responsive Mobile View State
@@ -38,6 +47,13 @@ export const MainChatView: React.FC = () => {
     }
   };
 
+  const handleDeleteConversation = (convId: string) => {
+    deleteConversation(convId);
+    if (isMobile && activeConversation?.id === convId) {
+      setShowMobileChat(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100dvh', overflow: 'hidden' }}>
       {/* Sidebar - Visible on Desktop or when mobile chat is not focused */}
@@ -48,6 +64,7 @@ export const MainChatView: React.FC = () => {
             activeConversation={activeConversation}
             onSelectConversation={handleSelectConversation}
             onRefreshConversations={refreshConversations}
+            onDeleteConversation={handleDeleteConversation}
           />
         </div>
       )}
@@ -60,6 +77,7 @@ export const MainChatView: React.FC = () => {
               <ChatHeader
                 activeConversation={activeConversation}
                 onBack={isMobile ? () => setShowMobileChat(false) : undefined}
+                onDelete={() => handleDeleteConversation(activeConversation.id)}
               />
               <MessageList
                 messages={messages}
