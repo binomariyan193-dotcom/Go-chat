@@ -146,6 +146,8 @@ export const getAllUsers = async (currentUserId: string) => {
 };
 
 export const createOrGetDirectConversation = async (currentUserId: string, targetUserId: string) => {
+  let targetConvId: string | null = null;
+
   // Find existing DM between these 2 users
   const { data: currentMembers } = await supabaseAdmin
     .from('ConversationMember')
@@ -170,25 +172,54 @@ export const createOrGetDirectConversation = async (currentUserId: string, targe
         .eq('isGroup', false)
         .single();
 
-      if (existingConv) return existingConv;
+      if (existingConv) {
+        targetConvId = existingConv.id;
+      }
     }
   }
 
-  // Create new DM conversation
-  const { data: newConv, error: createError } = await supabaseAdmin
+  // Create new DM conversation if not found
+  if (!targetConvId) {
+    const { data: newConv, error: createError } = await supabaseAdmin
+      .from('Conversation')
+      .insert([{ isGroup: false }])
+      .select('*')
+      .single();
+
+    if (createError) throw new Error(createError.message);
+
+    await supabaseAdmin.from('ConversationMember').insert([
+      { conversationId: newConv.id, userId: currentUserId },
+      { conversationId: newConv.id, userId: targetUserId },
+    ]);
+
+    targetConvId = newConv.id;
+  }
+
+  // Fetch full conversation object with members and messages
+  const { data: conv } = await supabaseAdmin
     .from('Conversation')
-    .insert([{ isGroup: false }])
     .select('*')
+    .eq('id', targetConvId)
     .single();
 
-  if (createError) throw new Error(createError.message);
+  const { data: members } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('user:User(id, username, avatarUrl, status)')
+    .eq('conversationId', targetConvId);
 
-  await supabaseAdmin.from('ConversationMember').insert([
-    { conversationId: newConv.id, userId: currentUserId },
-    { conversationId: newConv.id, userId: targetUserId },
-  ]);
+  const { data: lastMessages } = await supabaseAdmin
+    .from('Message')
+    .select('*')
+    .eq('conversationId', targetConvId)
+    .order('createdAt', { ascending: false })
+    .limit(1);
 
-  return newConv;
+  return {
+    ...conv,
+    members: members || [],
+    messages: lastMessages || [],
+  };
 };
 
 export const editMessage = async (messageId: string, senderId: string, textContent: string) => {

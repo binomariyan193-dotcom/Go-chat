@@ -164,6 +164,15 @@ export const useChat = () => {
   }, [unreadCounts]);
 
   const setActiveConversation = (conv: Conversation) => {
+    setConversations((prev) => {
+      const exists = prev.some((c) => c.id === conv.id);
+      return exists ? prev : [conv, ...prev];
+    });
+
+    if (socket) {
+      socket.emit('join_room', conv.id);
+    }
+
     setActiveConversationState(conv);
     setUnreadCounts((prev) => ({ ...prev, [conv.id]: 0 }));
   };
