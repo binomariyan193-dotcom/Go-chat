@@ -4,15 +4,16 @@ import { useAuth } from '../../context/AuthContext';
 import { formatTime } from '../../utils/format';
 import { Avatar } from '../common/Avatar';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { Edit2, Check, X, CheckCheck } from 'lucide-react';
+import { Edit2, Check, X, CheckCheck, Trash2 } from 'lucide-react';
 
 interface MessageItemProps {
   message: Message;
   onImageClick: (url: string) => void;
   onEditMessage?: (messageId: string, textContent: string) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
-export const MessageItem: React.FC<MessageItemProps> = ({ message, onImageClick, onEditMessage }) => {
+export const MessageItem: React.FC<MessageItemProps> = ({ message, onImageClick, onEditMessage, onDeleteMessage }) => {
   const { user } = useAuth();
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -180,6 +181,32 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message, onImageClick,
                 title="Edit message (15s window)"
               >
                 <Edit2 size={11} /> Edit ({remainingSeconds}s)
+              </button>
+            )}
+
+            {/* Delete Message Button for Sender */}
+            {isMe && onDeleteMessage && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Delete this message?')) {
+                    onDeleteMessage(message.id);
+                  }
+                }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                  marginLeft: '4px',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = '#ef4444')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--text-secondary)')}
+                title="Delete message"
+              >
+                <Trash2 size={12} />
               </button>
             )}
           </div>

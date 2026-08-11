@@ -21,6 +21,7 @@ export const MainChatView: React.FC = () => {
     isLoadingMessages,
     sendMessage,
     editMessage,
+    deleteMessage,
     deleteConversation,
     refreshConversations,
   } = useChat();
@@ -84,6 +85,7 @@ export const MainChatView: React.FC = () => {
                 isLoading={isLoadingMessages}
                 onImageClick={(url) => setSelectedImageUrl(url)}
                 onEditMessage={editMessage}
+                onDeleteMessage={deleteMessage}
               />
               <MessageInput onSendMessage={sendMessage} />
             </>

@@ -136,14 +136,20 @@ export const useChat = () => {
       });
     };
 
+    const handleMessageDeleted = (data: { messageId: string; conversationId: string }) => {
+      setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('message_edited', handleMessageEdited);
     socket.on('conversation_deleted', handleConversationDeleted);
+    socket.on('message_deleted', handleMessageDeleted);
 
     return () => {
       socket.off('new_message', handleNewMessage);
       socket.off('message_edited', handleMessageEdited);
       socket.off('conversation_deleted', handleConversationDeleted);
+      socket.off('message_deleted', handleMessageDeleted);
     };
   }, [socket, activeConversation, user]);
 
@@ -179,6 +185,14 @@ export const useChat = () => {
       messageId,
       senderId: user.id,
       textContent,
+    });
+  };
+
+  const deleteMessage = (messageId: string) => {
+    if (!socket || !user) return;
+    socket.emit('delete_message', {
+      messageId,
+      senderId: user.id,
     });
   };
 
@@ -219,6 +233,7 @@ export const useChat = () => {
     isLoadingMessages,
     sendMessage,
     editMessage,
+    deleteMessage,
     deleteConversation,
     refreshConversations: fetchConversations,
   };

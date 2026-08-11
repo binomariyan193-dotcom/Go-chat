@@ -271,4 +271,34 @@ export const deleteConversation = async (conversationId: string, userId: string)
   return { conversationId };
 };
 
+export const deleteMessage = async (messageId: string, senderId: string) => {
+  // 1. Fetch message
+  const { data: existingMsg, error: fetchError } = await supabaseAdmin
+    .from('Message')
+    .select('*')
+    .eq('id', messageId)
+    .single();
+
+  if (fetchError || !existingMsg) {
+    throw new Error('Message not found');
+  }
+
+  // 2. Sender validation
+  if (existingMsg.senderId !== senderId) {
+    throw new Error('Unauthorized to delete this message');
+  }
+
+  // 3. Delete message
+  const { error: deleteError } = await supabaseAdmin
+    .from('Message')
+    .delete()
+    .eq('id', messageId);
+
+  if (deleteError) {
+    throw new Error(`Failed to delete message: ${deleteError.message}`);
+  }
+
+  return { messageId, conversationId: existingMsg.conversationId };
+};
+
 

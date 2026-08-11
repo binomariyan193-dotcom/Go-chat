@@ -41,4 +41,15 @@ export const registerMessageHandler = (io: Server, socket: Socket) => {
   socket.on('delete_conversation', (data: { conversationId: string }) => {
     io.to(data.conversationId).emit('conversation_deleted', { conversationId: data.conversationId });
   });
+
+  socket.on('delete_message', async (payload: { messageId: string; senderId: string }) => {
+    try {
+      const { messageId, senderId } = payload;
+      const result = await chatService.deleteMessage(messageId, senderId);
+      io.to(result.conversationId).emit('message_deleted', result);
+    } catch (error: any) {
+      console.error('Failed to delete message:', error.message);
+      socket.emit('error', { message: error.message || 'Failed to delete message' });
+    }
+  });
 };
