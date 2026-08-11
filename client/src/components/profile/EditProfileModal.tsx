@@ -54,7 +54,7 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
     setIsCropperOpen(false);
     setError('');
 
-    const croppedFile = new File([croppedBlob], `avatar_${Date.now()}.png`, { type: 'image/png' });
+    const croppedFile = new File([croppedBlob], `avatar_${Date.now()}.webp`, { type: 'image/webp' });
     const uploadedUrl = await uploadImage(croppedFile);
 
     if (uploadedUrl) {
