@@ -14,7 +14,7 @@ const server = http.createServer(app);
 
 // CORS configuration for REST API & Socket.io
 const corsOptions = {
-  origin: true, // Allow configured origins and dynamically credentials
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173', // Allow configured origins and dynamically credentials
   credentials: true,
 };
 
