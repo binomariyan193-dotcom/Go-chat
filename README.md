@@ -10,6 +10,16 @@
 
 ---
 
+## 🖼️ Application Screenshots
+
+### 💻 Desktop Web Browser Interface
+![LoopIN Desktop Web Interface](client/public/images/web_preview.png)
+
+### 📱 Mobile Smartphone Interface
+<img src="client/public/images/mobile_preview.png" alt="LoopIN Mobile App Interface" width="380" />
+
+---
+
 ## ✨ Key Features
 
 ### 💬 1. Real-Time Chat & Messaging
