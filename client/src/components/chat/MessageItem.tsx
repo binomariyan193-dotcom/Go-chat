@@ -5,6 +5,7 @@ import { formatTime } from '../../utils/format';
 import { Avatar } from '../common/Avatar';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { Edit2, Check, X, CheckCheck, Trash2, Smile } from 'lucide-react';
+import { AudioPlayer } from './AudioPlayer';
 
 interface MessageItemProps {
   message: Message;
@@ -174,6 +175,8 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 }}
               />
             )}
+
+            {message.audioUrl && <AudioPlayer audioUrl={message.audioUrl} isMe={isMe} />}
 
             {isEditing ? (
               <form onSubmit={handleSaveEdit} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>

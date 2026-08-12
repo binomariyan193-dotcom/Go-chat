@@ -150,6 +150,7 @@ export const getConversationMessages = async (conversationId: string) => {
       senderId,
       textContent,
       imageUrl,
+      audioUrl,
       createdAt,
       sender:User (id, username, avatarUrl)
     `)
@@ -193,7 +194,8 @@ export const createMessage = async (
   conversationId: string,
   senderId: string,
   textContent?: string,
-  imageUrl?: string
+  imageUrl?: string,
+  audioUrl?: string
 ) => {
   const { data: newMessage, error } = await supabaseAdmin
     .from('Message')
@@ -203,6 +205,7 @@ export const createMessage = async (
         senderId,
         textContent,
         imageUrl,
+        audioUrl,
       },
     ])
     .select(`
@@ -211,6 +214,7 @@ export const createMessage = async (
       senderId,
       textContent,
       imageUrl,
+      audioUrl,
       createdAt,
       sender:User (id, username, avatarUrl)
     `)

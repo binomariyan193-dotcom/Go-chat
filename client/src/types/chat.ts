@@ -18,6 +18,7 @@ export interface Message {
   senderId: string;
   textContent?: string;
   imageUrl?: string;
+  audioUrl?: string;
   createdAt: string;
   sender: {
     id: string;

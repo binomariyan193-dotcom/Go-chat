@@ -4,10 +4,10 @@ import * as chatService from '../services/chat.service';
 export const registerMessageHandler = (io: Server, socket: Socket) => {
   socket.on(
     'send_message',
-    async (payload: { conversationId: string; senderId: string; textContent?: string; imageUrl?: string }) => {
+    async (payload: { conversationId: string; senderId: string; textContent?: string; imageUrl?: string; audioUrl?: string }) => {
       try {
-        const { conversationId, senderId, textContent, imageUrl } = payload;
-        const message = await chatService.createMessage(conversationId, senderId, textContent, imageUrl);
+        const { conversationId, senderId, textContent, imageUrl, audioUrl } = payload;
+        const message = await chatService.createMessage(conversationId, senderId, textContent, imageUrl, audioUrl);
 
         // Broadcast to all clients in the conversation room
         io.to(conversationId).emit('new_message', message);

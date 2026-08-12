@@ -358,7 +358,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isSelected = activeConversation?.id === conv.id;
             const otherMember = conv.members.find((m) => m.user.id !== user?.id)?.user;
             const chatName = conv.isGroup ? conv.name : otherMember?.username || 'Chat';
-            const lastMessage = conv.messages?.[0]?.textContent || (conv.messages?.[0]?.imageUrl ? '📷 Image' : 'No messages yet');
+            const lastMessage =
+              conv.messages?.[0]?.textContent ||
+              (conv.messages?.[0]?.imageUrl
+                ? '📷 Image'
+                : conv.messages?.[0]?.audioUrl
+                ? '🎵 Voice Note'
+                : 'No messages yet');
 
             return (
               <div

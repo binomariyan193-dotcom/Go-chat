@@ -284,7 +284,7 @@ export const useChat = () => {
     setUnreadCounts((prev) => ({ ...prev, [conv.id]: 0 }));
   };
 
-  const sendMessage = (textContent?: string, imageUrl?: string) => {
+  const sendMessage = (textContent?: string, imageUrl?: string, audioUrl?: string) => {
     if (!socket || !activeConversation || !user) return;
 
     hapticMedium();
@@ -293,6 +293,7 @@ export const useChat = () => {
       senderId: user.id,
       textContent,
       imageUrl,
+      audioUrl,
     });
   };
 
