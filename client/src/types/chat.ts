@@ -6,6 +6,12 @@ export interface User {
   status?: 'online' | 'offline' | 'away';
 }
 
+export interface Reaction {
+  emoji: string;
+  count: number;
+  userIds: string[];
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -18,6 +24,7 @@ export interface Message {
     username: string;
     avatarUrl?: string;
   };
+  reactions?: Reaction[];
 }
 
 export interface Conversation {

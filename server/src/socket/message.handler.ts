@@ -56,4 +56,17 @@ export const registerMessageHandler = (io: Server, socket: Socket) => {
   socket.on('update_status', (data: { userId: string; status: 'online' | 'offline' }) => {
     io.emit('user_status_changed', data);
   });
+
+  socket.on('react_message', async (payload: { messageId: string; userId: string; emoji: string }) => {
+    try {
+      const { messageId, userId, emoji } = payload;
+      const result = await chatService.toggleReaction(messageId, userId, emoji);
+      if (result.conversationId) {
+        io.to(result.conversationId).emit('message_reaction_updated', result);
+      }
+    } catch (error: any) {
+      console.error('Failed to toggle reaction:', error.message);
+      socket.emit('error', { message: error.message || 'Failed to toggle reaction' });
+    }
+  });
 };

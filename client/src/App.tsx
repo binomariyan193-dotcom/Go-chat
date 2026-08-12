@@ -23,6 +23,7 @@ export const MainChatView: React.FC = () => {
     editMessage,
     deleteMessage,
     deleteConversation,
+    reactToMessage,
     refreshConversations,
   } = useChat();
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
@@ -110,6 +111,7 @@ export const MainChatView: React.FC = () => {
                 onImageClick={(url) => setSelectedImageUrl(url)}
                 onEditMessage={editMessage}
                 onDeleteMessage={deleteMessage}
+                onReactToMessage={reactToMessage}
               />
               <MessageInput onSendMessage={sendMessage} />
             </>

@@ -85,6 +85,62 @@ export const getUserConversations = async (userId: string) => {
   return fullConversations;
 };
 
+export const fetchMessageReactions = async (messageId: string) => {
+  const { data: reactionsRows, error } = await supabaseAdmin
+    .from('MessageReaction')
+    .select('emoji, userId')
+    .eq('messageId', messageId);
+
+  if (error || !reactionsRows) return [];
+
+  const grouped: { [emoji: string]: string[] } = {};
+  reactionsRows.forEach((r: any) => {
+    if (!grouped[r.emoji]) grouped[r.emoji] = [];
+    grouped[r.emoji].push(r.userId);
+  });
+
+  return Object.keys(grouped).map((emoji) => ({
+    emoji,
+    count: grouped[emoji].length,
+    userIds: grouped[emoji],
+  }));
+};
+
+export const toggleReaction = async (messageId: string, userId: string, emoji: string) => {
+  const { data: existing } = await supabaseAdmin
+    .from('MessageReaction')
+    .select('*')
+    .eq('messageId', messageId)
+    .eq('userId', userId)
+    .eq('emoji', emoji)
+    .single();
+
+  if (existing) {
+    await supabaseAdmin
+      .from('MessageReaction')
+      .delete()
+      .eq('id', existing.id);
+  } else {
+    await supabaseAdmin
+      .from('MessageReaction')
+      .insert([{ messageId, userId, emoji }]);
+  }
+
+  const reactions = await fetchMessageReactions(messageId);
+
+  const { data: msg } = await supabaseAdmin
+    .from('Message')
+    .select('conversationId')
+    .eq('id', messageId)
+    .single();
+
+  return {
+    messageId,
+    conversationId: msg?.conversationId,
+    reactions,
+  };
+};
+
 export const getConversationMessages = async (conversationId: string) => {
   const { data: messages, error } = await supabaseAdmin
     .from('Message')
@@ -101,7 +157,36 @@ export const getConversationMessages = async (conversationId: string) => {
     .order('createdAt', { ascending: true });
 
   if (error) throw new Error(`Failed to fetch messages: ${error.message}`);
-  return messages || [];
+  if (!messages || messages.length === 0) return [];
+
+  const messageIds = messages.map((m) => m.id);
+  const { data: reactionsRows } = await supabaseAdmin
+    .from('MessageReaction')
+    .select('messageId, emoji, userId')
+    .in('messageId', messageIds);
+
+  const reactionsByMsg: { [msgId: string]: { [emoji: string]: string[] } } = {};
+  if (reactionsRows) {
+    reactionsRows.forEach((r: any) => {
+      if (!reactionsByMsg[r.messageId]) reactionsByMsg[r.messageId] = {};
+      if (!reactionsByMsg[r.messageId][r.emoji]) reactionsByMsg[r.messageId][r.emoji] = [];
+      reactionsByMsg[r.messageId][r.emoji].push(r.userId);
+    });
+  }
+
+  return messages.map((m) => {
+    const msgReactions = reactionsByMsg[m.id] || {};
+    const formattedReactions = Object.keys(msgReactions).map((emoji) => ({
+      emoji,
+      count: msgReactions[emoji].length,
+      userIds: msgReactions[emoji],
+    }));
+
+    return {
+      ...m,
+      reactions: formattedReactions,
+    };
+  });
 };
 
 export const createMessage = async (

@@ -231,11 +231,24 @@ export const useChat = () => {
       });
     };
 
+    const handleReactionUpdated = (data: { messageId: string; conversationId: string; reactions: any[] }) => {
+      const convId = data.conversationId;
+      if (messageCacheRef.current[convId]) {
+        messageCacheRef.current[convId] = messageCacheRef.current[convId].map((m) =>
+          m.id === data.messageId ? { ...m, reactions: data.reactions } : m
+        );
+      }
+      setMessages((prev) =>
+        prev.map((m) => (m.id === data.messageId ? { ...m, reactions: data.reactions } : m))
+      );
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('message_edited', handleMessageEdited);
     socket.on('conversation_deleted', handleConversationDeleted);
     socket.on('message_deleted', handleMessageDeleted);
     socket.on('user_status_changed', handleUserStatusChanged);
+    socket.on('message_reaction_updated', handleReactionUpdated);
 
     return () => {
       socket.off('new_message', handleNewMessage);
@@ -243,6 +256,7 @@ export const useChat = () => {
       socket.off('conversation_deleted', handleConversationDeleted);
       socket.off('message_deleted', handleMessageDeleted);
       socket.off('user_status_changed', handleUserStatusChanged);
+      socket.off('message_reaction_updated', handleReactionUpdated);
     };
   }, [socket, user]);
 
@@ -325,6 +339,16 @@ export const useChat = () => {
     }
   };
 
+  const reactToMessage = (messageId: string, emoji: string) => {
+    if (!socket || !user) return;
+    hapticLight();
+    socket.emit('react_message', {
+      messageId,
+      userId: user.id,
+      emoji,
+    });
+  };
+
   // Merge unreadCounts into conversations array
   const conversationsWithUnread = conversations.map((c) => ({
     ...c,
@@ -341,6 +365,7 @@ export const useChat = () => {
     editMessage,
     deleteMessage,
     deleteConversation,
+    reactToMessage,
     refreshConversations: fetchConversations,
   };
 };

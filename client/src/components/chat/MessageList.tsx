@@ -8,6 +8,7 @@ interface MessageListProps {
   onImageClick: (url: string) => void;
   onEditMessage?: (messageId: string, textContent: string) => void;
   onDeleteMessage?: (messageId: string) => void;
+  onReactToMessage?: (messageId: string, emoji: string) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
@@ -16,6 +17,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   onImageClick,
   onEditMessage,
   onDeleteMessage,
+  onReactToMessage,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -45,6 +47,7 @@ export const MessageList: React.FC<MessageListProps> = ({
             onImageClick={onImageClick}
             onEditMessage={onEditMessage}
             onDeleteMessage={onDeleteMessage}
+            onReactToMessage={onReactToMessage}
           />
         ))
       )}
