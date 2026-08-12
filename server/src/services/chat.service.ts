@@ -231,17 +231,20 @@ export const createMessage = async (
   imageUrl?: string,
   audioUrl?: string
 ) => {
+  const insertPayload: any = {
+    conversationId,
+    senderId,
+    textContent,
+    imageUrl,
+  };
+
+  if (audioUrl) {
+    insertPayload.audioUrl = audioUrl;
+  }
+
   const { data: newMessage, error } = await supabaseAdmin
     .from('Message')
-    .insert([
-      {
-        conversationId,
-        senderId,
-        textContent,
-        imageUrl,
-        audioUrl,
-      },
-    ])
+    .insert([insertPayload])
     .select(`
       id,
       conversationId,
@@ -253,6 +256,35 @@ export const createMessage = async (
       sender:User (id, username, avatarUrl)
     `)
     .single();
+
+  if (error && error.message.includes('audioUrl')) {
+    const fallbackPayload: any = {
+      conversationId,
+      senderId,
+      textContent: textContent || undefined,
+      imageUrl,
+    };
+    if (audioUrl) {
+      fallbackPayload.textContent = textContent ? `${textContent} (Voice Note: ${audioUrl})` : audioUrl;
+    }
+
+    const { data: fallbackMessage, error: fallbackError } = await supabaseAdmin
+      .from('Message')
+      .insert([fallbackPayload])
+      .select(`
+        id,
+        conversationId,
+        senderId,
+        textContent,
+        imageUrl,
+        createdAt,
+        sender:User (id, username, avatarUrl)
+      `)
+      .single();
+
+    if (fallbackError) throw new Error(`Failed to create message: ${fallbackError.message}`);
+    return { ...fallbackMessage, audioUrl };
+  }
 
   if (error) throw new Error(`Failed to create message: ${error.message}`);
   return newMessage;
