@@ -4,7 +4,7 @@ import { Conversation, Message } from '../types/chat';
 import { useSocketContext } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { playNotificationSound } from '../utils/sound';
-import { hapticNotification, hapticMedium, hapticWarning } from '../utils/haptics';
+import { hapticNotification, hapticMedium, hapticWarning, hapticLight } from '../utils/haptics';
 
 export const useChat = () => {
   const { user } = useAuth();
