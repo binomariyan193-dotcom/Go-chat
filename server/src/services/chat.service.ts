@@ -142,7 +142,11 @@ export const toggleReaction = async (messageId: string, userId: string, emoji: s
 };
 
 export const getConversationMessages = async (conversationId: string) => {
-  const { data: messages, error } = await supabaseAdmin
+  let messages: any[] | null = null;
+  let fetchError: any = null;
+
+  // Try fetching with audioUrl
+  const result = await supabaseAdmin
     .from('Message')
     .select(`
       id,
@@ -157,14 +161,44 @@ export const getConversationMessages = async (conversationId: string) => {
     .eq('conversationId', conversationId)
     .order('createdAt', { ascending: true });
 
-  if (error) throw new Error(`Failed to fetch messages: ${error.message}`);
+  if (result.error && result.error.message.includes('audioUrl')) {
+    // Fallback query if audioUrl column not created in Supabase SQL editor yet
+    const fallbackResult = await supabaseAdmin
+      .from('Message')
+      .select(`
+        id,
+        conversationId,
+        senderId,
+        textContent,
+        imageUrl,
+        createdAt,
+        sender:User (id, username, avatarUrl)
+      `)
+      .eq('conversationId', conversationId)
+      .order('createdAt', { ascending: true });
+
+    messages = fallbackResult.data;
+    fetchError = fallbackResult.error;
+  } else {
+    messages = result.data;
+    fetchError = result.error;
+  }
+
+  if (fetchError) throw new Error(`Failed to fetch messages: ${fetchError.message}`);
   if (!messages || messages.length === 0) return [];
 
-  const messageIds = messages.map((m) => m.id);
-  const { data: reactionsRows } = await supabaseAdmin
-    .from('MessageReaction')
-    .select('messageId, emoji, userId')
-    .in('messageId', messageIds);
+  // Fetch reactions safely without crashing if MessageReaction table doesn't exist yet
+  let reactionsRows: any[] | null = null;
+  try {
+    const messageIds = messages.map((m) => m.id);
+    const reactionsResult = await supabaseAdmin
+      .from('MessageReaction')
+      .select('messageId, emoji, userId')
+      .in('messageId', messageIds);
+    reactionsRows = reactionsResult.data;
+  } catch (err) {
+    reactionsRows = [];
+  }
 
   const reactionsByMsg: { [msgId: string]: { [emoji: string]: string[] } } = {};
   if (reactionsRows) {
