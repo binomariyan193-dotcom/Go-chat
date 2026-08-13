@@ -89,7 +89,13 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
       let newAvatarUrl = conversation.avatarUrl;
       if (selectedFile) {
         const uploaded = await uploadImage(selectedFile);
-        if (uploaded) newAvatarUrl = uploaded;
+        if (uploaded) {
+          newAvatarUrl = uploaded;
+        } else {
+          alert('Failed to upload image. Please try selecting the image again.');
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       await onUpdateGroup(conversation.id, {
@@ -100,6 +106,7 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
 
       setIsEditing(false);
       setSelectedFile(null);
+      setPreviewAvatar(null);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update group settings');
     } finally {

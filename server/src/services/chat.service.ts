@@ -621,20 +621,26 @@ export const updateGroupDetails = async (
     throw new Error('Only Group Admins can update group details');
   }
 
+  const cleanUpdates: any = {};
+  if (updates.name !== undefined && updates.name !== null) cleanUpdates.name = updates.name;
+  if (updates.description !== undefined) cleanUpdates.description = updates.description;
+  if (updates.avatarUrl !== undefined) cleanUpdates.avatarUrl = updates.avatarUrl === '' ? null : updates.avatarUrl;
+
   let updatedConv: any = null;
   let updateError: any = null;
 
   const res = await supabaseAdmin
     .from('Conversation')
-    .update(updates)
+    .update(cleanUpdates)
     .eq('id', conversationId)
     .select('*')
     .single();
 
   if (res.error && (res.error.message.includes('description') || res.error.message.includes('avatarUrl'))) {
+    console.warn(`⚠️ [DATABASE MIGRATION MISSING] avatarUrl/description column missing: ${res.error.message}`);
     const fallbackRes = await supabaseAdmin
       .from('Conversation')
-      .update({ name: updates.name })
+      .update({ name: cleanUpdates.name || 'Group' })
       .eq('id', conversationId)
       .select('*')
       .single();
