@@ -6,6 +6,8 @@ import { useImageUpload } from '../../hooks/useImageUpload';
 import { Avatar } from '../common/Avatar';
 import { api } from '../../services/api';
 import { hapticMedium, hapticLight, hapticWarning } from '../../utils/haptics';
+import { ImageCropperModal } from '../profile/ImageCropperModal';
+import { ImageLightbox } from './ImageLightbox';
 
 interface GroupSettingsModalProps {
   conversation: Conversation | null;
@@ -30,14 +32,18 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [currentAvatarUrl, setCurrentAvatarUrl] = useState<string | null>(null);
 
   // Invite more friends state
   const [showInviteSection, setShowInviteSection] = useState(false);
   const [availableFriends, setAvailableFriends] = useState<User[]>([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Cropper & Lightbox States
+  const [cropperRawSrc, setCropperRawSrc] = useState<string | null>(null);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, isUploading } = useImageUpload();
@@ -46,7 +52,7 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
     if (!conversation) return;
     setName(conversation.name || '');
     setDescription(conversation.description || '');
-    setPreviewAvatar(conversation.avatarUrl || null);
+    setCurrentAvatarUrl(conversation.avatarUrl || null);
   }, [conversation]);
 
   // Check if current logged-in user is an Admin of this group
@@ -73,11 +79,24 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
 
   if (!isOpen || !conversation) return null;
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setPreviewAvatar(URL.createObjectURL(file));
+    if (!file) return;
+
+    const rawUrl = URL.createObjectURL(file);
+    setCropperRawSrc(rawUrl);
+    setIsCropperOpen(true);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setIsCropperOpen(false);
+    const croppedFile = new File([croppedBlob], `group_avatar_${Date.now()}.webp`, { type: 'image/webp' });
+    const uploadedUrl = await uploadImage(croppedFile);
+    if (uploadedUrl) {
+      setCurrentAvatarUrl(uploadedUrl);
+    } else {
+      alert('Failed to upload cropped group photo.');
     }
   };
 
@@ -86,27 +105,13 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
       hapticMedium();
       setIsSubmitting(true);
 
-      let newAvatarUrl = conversation.avatarUrl;
-      if (selectedFile) {
-        const uploaded = await uploadImage(selectedFile);
-        if (uploaded) {
-          newAvatarUrl = uploaded;
-        } else {
-          alert('Failed to upload image. Please try selecting the image again.');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
       await onUpdateGroup(conversation.id, {
         name: name.trim(),
         description: description.trim(),
-        avatarUrl: newAvatarUrl,
+        avatarUrl: currentAvatarUrl || '',
       });
 
       setIsEditing(false);
-      setSelectedFile(null);
-      setPreviewAvatar(null);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update group settings');
     } finally {
@@ -118,8 +123,7 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
     try {
       hapticMedium();
       setIsSubmitting(true);
-      setPreviewAvatar(null);
-      setSelectedFile(null);
+      setCurrentAvatarUrl(null);
       await onUpdateGroup(conversation.id, { avatarUrl: '' });
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to remove group photo');
@@ -240,12 +244,18 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
           {/* Top Info Banner */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: '10px' }}>
             <div style={{ position: 'relative' }}>
-              <Avatar src={previewAvatar || conversation.avatarUrl} name={conversation.name || 'Group'} size="lg" />
+              <Avatar
+                src={currentAvatarUrl || conversation.avatarUrl}
+                name={conversation.name || 'Group'}
+                size="lg"
+                onClick={() => (currentAvatarUrl || conversation.avatarUrl) && setIsLightboxOpen(true)}
+              />
               {isAdmin && isEditing && (
                 <>
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
                     style={{
                       position: 'absolute',
                       bottom: 0,
@@ -262,22 +272,22 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
                       cursor: 'pointer',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
                     }}
-                    title="Upload Group Photo"
+                    title="Upload & Crop Group Photo"
                   >
-                    <ImageIcon size={15} />
+                    {isUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={15} />}
                   </button>
                   <input
                     type="file"
                     ref={fileInputRef}
                     accept="image/*"
-                    onChange={handleAvatarChange}
+                    onChange={handleAvatarFileSelected}
                     style={{ display: 'none' }}
                   />
                 </>
               )}
             </div>
 
-            {isAdmin && isEditing && (previewAvatar || conversation.avatarUrl) && (
+            {isAdmin && isEditing && (currentAvatarUrl || conversation.avatarUrl) && (
               <button
                 type="button"
                 onClick={handleRemoveGroupPhoto}
@@ -616,6 +626,20 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        imageSrc={cropperRawSrc}
+        isOpen={isCropperOpen}
+        onClose={() => setIsCropperOpen(false)}
+        onCropComplete={handleCropComplete}
+      />
+
+      {/* Group Avatar Lightbox */}
+      <ImageLightbox
+        imageUrl={isLightboxOpen ? currentAvatarUrl || conversation.avatarUrl || null : null}
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </div>
   );
 };

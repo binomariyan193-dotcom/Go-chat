@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Users, Image as ImageIcon, Check, Loader2, UserPlus } from 'lucide-react';
+import { X, Users, Image as ImageIcon, Check, Loader2, UserPlus, Trash2 } from 'lucide-react';
 import { api } from '../../services/api';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { Avatar } from '../common/Avatar';
 import { hapticMedium, hapticLight } from '../../utils/haptics';
+import { ImageCropperModal } from '../profile/ImageCropperModal';
+import { ImageLightbox } from './ImageLightbox';
 
 interface Friend {
   id: string;
@@ -30,12 +32,16 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewAvatar, setPreviewAvatar] = useState<string | null>(null);
+  const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState<string | null>(null);
   const [friends, setFriends] = useState<Friend[]>([]);
   const [selectedFriendIds, setSelectedFriendIds] = useState<string[]>([]);
   const [isLoadingFriends, setIsLoadingFriends] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Cropper & Lightbox States
+  const [cropperRawSrc, setCropperRawSrc] = useState<string | null>(null);
+  const [isCropperOpen, setIsCropperOpen] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadImage, isUploading } = useImageUpload();
@@ -60,11 +66,24 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarFileSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setPreviewAvatar(URL.createObjectURL(file));
+    if (!file) return;
+
+    const rawUrl = URL.createObjectURL(file);
+    setCropperRawSrc(rawUrl);
+    setIsCropperOpen(true);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedBlob: Blob) => {
+    setIsCropperOpen(false);
+    const croppedFile = new File([croppedBlob], `group_avatar_${Date.now()}.webp`, { type: 'image/webp' });
+    const uploadedUrl = await uploadImage(croppedFile);
+    if (uploadedUrl) {
+      setUploadedAvatarUrl(uploadedUrl);
+    } else {
+      alert('Failed to upload cropped group image.');
     }
   };
 
@@ -83,26 +102,17 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
       hapticMedium();
       setIsSubmitting(true);
 
-      let avatarUrl: string | undefined = undefined;
-      if (selectedFile) {
-        const uploaded = await uploadImage(selectedFile);
-        if (uploaded) {
-          avatarUrl = uploaded;
-        }
-      }
-
       await onCreateGroup({
         name: name.trim(),
         description: description.trim() || undefined,
-        avatarUrl,
+        avatarUrl: uploadedAvatarUrl || undefined,
         memberUserIds: selectedFriendIds,
       });
 
       // Reset form
       setName('');
       setDescription('');
-      setSelectedFile(null);
-      setPreviewAvatar(null);
+      setUploadedAvatarUrl(null);
       setSelectedFriendIds([]);
       onClose();
     } catch (err: any) {
@@ -189,32 +199,16 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           {/* Avatar Upload */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ position: 'relative' }}>
-              {previewAvatar ? (
-                <img
-                  src={previewAvatar}
-                  alt="Group Avatar"
-                  style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid #38bdf8' }}
-                />
-              ) : (
-                <div
-                  style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: '50%',
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '1px dashed var(--border-color)',
-                    color: 'var(--text-secondary)',
-                  }}
-                >
-                  <Users size={28} />
-                </div>
-              )}
+              <Avatar
+                src={uploadedAvatarUrl || undefined}
+                name={name || 'Group'}
+                size="lg"
+                onClick={() => uploadedAvatarUrl && setIsLightboxOpen(true)}
+              />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
                 style={{
                   position: 'absolute',
                   bottom: -2,
@@ -223,33 +217,57 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
                   color: '#03081C',
                   border: 'none',
                   borderRadius: '50%',
-                  width: 26,
-                  height: 26,
+                  width: 28,
+                  height: 28,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
                   boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                 }}
-                title="Upload Group Photo"
+                title="Upload & Crop Group Photo"
               >
-                <ImageIcon size={14} />
+                {isUploading ? <Loader2 size={14} className="animate-spin" /> : <ImageIcon size={14} />}
               </button>
               <input
                 type="file"
                 ref={fileInputRef}
                 accept="image/*"
-                onChange={handleAvatarChange}
+                onChange={handleAvatarFileSelected}
                 style={{ display: 'none' }}
               />
             </div>
             <div>
               <h4 style={{ fontSize: '0.95rem', fontWeight: 600, color: '#fff', margin: '0 0 4px 0' }}>
-                Group Icon
+                Group Photo
               </h4>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-                Optional custom channel picture
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                  Click camera to pick & crop photo
+                </span>
+                {uploadedAvatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setUploadedAvatarUrl(null)}
+                    style={{
+                      background: 'none',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      color: '#ef4444',
+                      borderRadius: '8px',
+                      padding: '2px 8px',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                    title="Remove Photo"
+                  >
+                    <Trash2 size={12} /> Remove
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
@@ -408,6 +426,20 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
           </button>
         </form>
       </div>
+
+      {/* Image Cropper Modal */}
+      <ImageCropperModal
+        imageSrc={cropperRawSrc}
+        isOpen={isCropperOpen}
+        onClose={() => setIsCropperOpen(false)}
+        onCropComplete={handleCropComplete}
+      />
+
+      {/* Group Avatar Lightbox */}
+      <ImageLightbox
+        imageUrl={isLightboxOpen ? uploadedAvatarUrl : null}
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </div>
   );
 };
