@@ -28,13 +28,18 @@ export interface Message {
   reactions?: Reaction[];
 }
 
+export interface ConversationMember {
+  user: User;
+  role?: 'admin' | 'member';
+}
+
 export interface Conversation {
   id: string;
   name?: string;
+  description?: string;
+  avatarUrl?: string;
   isGroup: boolean;
-  members: {
-    user: User;
-  }[];
+  members: ConversationMember[];
   messages?: Message[];
   updatedAt: string;
   unreadCount?: number;

@@ -69,4 +69,21 @@ export const registerMessageHandler = (io: Server, socket: Socket) => {
       socket.emit('error', { message: error.message || 'Failed to toggle reaction' });
     }
   });
+
+  socket.on('group_created', (data: { conversation: any; memberUserIds: string[] }) => {
+    // Notify all members to join room and update conversation list
+    if (data.memberUserIds && Array.isArray(data.memberUserIds)) {
+      data.memberUserIds.forEach((uId) => {
+        io.emit('new_group_created', { userId: uId, conversation: data.conversation });
+      });
+    }
+  });
+
+  socket.on('group_updated', (data: { conversationId: string; conversation: any }) => {
+    io.to(data.conversationId).emit('group_info_updated', data);
+  });
+
+  socket.on('group_members_updated', (data: { conversationId: string; members: any[] }) => {
+    io.to(data.conversationId).emit('group_members_changed', data);
+  });
 };

@@ -9,6 +9,7 @@ import { ChatHeader } from './components/chat/ChatHeader';
 import { MessageList } from './components/chat/MessageList';
 import { MessageInput } from './components/chat/MessageInput';
 import { ImageLightbox } from './components/chat/ImageLightbox';
+import { GroupSettingsModal } from './components/chat/GroupSettingsModal';
 import { useChat } from './hooks/useChat';
 import { Conversation } from './types/chat';
 
@@ -24,9 +25,15 @@ export const MainChatView: React.FC = () => {
     deleteMessage,
     deleteConversation,
     reactToMessage,
+    createGroup,
+    updateGroupDetails,
+    addGroupMembers,
+    removeGroupMember,
+    updateMemberRole,
     refreshConversations,
   } = useChat();
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
 
   // Responsive Mobile View State
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
@@ -87,6 +94,7 @@ export const MainChatView: React.FC = () => {
             onSelectConversation={handleSelectConversation}
             onRefreshConversations={refreshConversations}
             onDeleteConversation={handleDeleteConversation}
+            onCreateGroup={createGroup}
           />
         </div>
       )}
@@ -104,6 +112,7 @@ export const MainChatView: React.FC = () => {
                 activeConversation={activeConversation}
                 onBack={isMobile ? () => setShowMobileChat(false) : undefined}
                 onDelete={() => handleDeleteConversation(activeConversation.id)}
+                onOpenGroupSettings={() => setIsGroupSettingsOpen(true)}
               />
               <MessageList
                 messages={messages}
@@ -132,6 +141,17 @@ export const MainChatView: React.FC = () => {
           )}
         </div>
       )}
+
+      {/* Group Settings Modal */}
+      <GroupSettingsModal
+        conversation={activeConversation}
+        isOpen={isGroupSettingsOpen}
+        onClose={() => setIsGroupSettingsOpen(false)}
+        onUpdateGroup={updateGroupDetails}
+        onAddMembers={addGroupMembers}
+        onRemoveMember={removeGroupMember}
+        onUpdateMemberRole={updateMemberRole}
+      />
 
       <ImageLightbox imageUrl={selectedImageUrl} onClose={() => setSelectedImageUrl(null)} />
     </div>

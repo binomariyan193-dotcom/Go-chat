@@ -55,10 +55,21 @@ export const getUserConversations = async (userId: string) => {
   // 3. Populate members and last message for each conversation
   const fullConversations = await Promise.all(
     conversations.map(async (conv) => {
-      const { data: members } = await supabaseAdmin
+      let members: any[] | null = null;
+      const { data: memberWithRole, error: roleError } = await supabaseAdmin
         .from('ConversationMember')
-        .select('user:User(id, username, avatarUrl, status)')
+        .select('role, user:User(id, username, avatarUrl, status)')
         .eq('conversationId', conv.id);
+
+      if (roleError && roleError.message.includes('role')) {
+        const { data: basicMembers } = await supabaseAdmin
+          .from('ConversationMember')
+          .select('user:User(id, username, avatarUrl, status)')
+          .eq('conversationId', conv.id);
+        members = basicMembers || [];
+      } else {
+        members = memberWithRole || [];
+      }
 
       const { data: lastMessages } = await supabaseAdmin
         .from('Message')
@@ -485,6 +496,193 @@ export const deleteMessage = async (messageId: string, senderId: string) => {
   }
 
   return { messageId, conversationId: existingMsg.conversationId };
+};
+
+export const createGroupConversation = async (
+  creatorId: string,
+  name: string,
+  description?: string,
+  avatarUrl?: string,
+  memberUserIds: string[] = []
+) => {
+  if (!name || name.trim().length === 0) {
+    throw new Error('Group name is required');
+  }
+
+  // 1. Insert conversation
+  const convPayload: any = {
+    name: name.trim(),
+    isGroup: true,
+  };
+  if (description) convPayload.description = description;
+  if (avatarUrl) convPayload.avatarUrl = avatarUrl;
+
+  const { data: newConv, error: createError } = await supabaseAdmin
+    .from('Conversation')
+    .insert([convPayload])
+    .select('*')
+    .single();
+
+  if (createError) throw new Error(`Failed to create group: ${createError.message}`);
+
+  // 2. Prepare member rows: Creator is 'admin', others are 'member'
+  const allUserIds = Array.from(new Set([creatorId, ...memberUserIds]));
+  const memberRows = allUserIds.map((userId) => ({
+    conversationId: newConv.id,
+    userId,
+    role: userId === creatorId ? 'admin' : 'member',
+  }));
+
+  const { error: memberError } = await supabaseAdmin
+    .from('ConversationMember')
+    .insert(memberRows);
+
+  if (memberError && memberError.message.includes('role')) {
+    // Fallback without role column if SQL migration not executed yet
+    const basicMemberRows = allUserIds.map((userId) => ({
+      conversationId: newConv.id,
+      userId,
+    }));
+    await supabaseAdmin.from('ConversationMember').insert(basicMemberRows);
+  } else if (memberError) {
+    throw new Error(`Failed to add group members: ${memberError.message}`);
+  }
+
+  // 3. Retrieve populated conversation
+  const { data: members } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('role, user:User(id, username, avatarUrl, status)')
+    .eq('conversationId', newConv.id);
+
+  return {
+    ...newConv,
+    members: members || [],
+    messages: [],
+  };
+};
+
+export const updateGroupDetails = async (
+  conversationId: string,
+  requesterId: string,
+  updates: { name?: string; description?: string; avatarUrl?: string }
+) => {
+  // Validate requester is group admin
+  const { data: member } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('role')
+    .eq('conversationId', conversationId)
+    .eq('userId', requesterId)
+    .single();
+
+  if (!member || (member.role && member.role !== 'admin')) {
+    throw new Error('Only Group Admins can update group details');
+  }
+
+  const { data: updatedConv, error } = await supabaseAdmin
+    .from('Conversation')
+    .update(updates)
+    .eq('id', conversationId)
+    .select('*')
+    .single();
+
+  if (error) throw new Error(`Failed to update group details: ${error.message}`);
+  return updatedConv;
+};
+
+export const addGroupMembers = async (
+  conversationId: string,
+  requesterId: string,
+  newMemberUserIds: string[]
+) => {
+  // Validate requester is group admin
+  const { data: member } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('role')
+    .eq('conversationId', conversationId)
+    .eq('userId', requesterId)
+    .single();
+
+  if (!member || (member.role && member.role !== 'admin')) {
+    throw new Error('Only Group Admins can add members to this group');
+  }
+
+  const memberRows = newMemberUserIds.map((userId) => ({
+    conversationId,
+    userId,
+    role: 'member',
+  }));
+
+  await supabaseAdmin.from('ConversationMember').insert(memberRows);
+
+  const { data: members } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('role, user:User(id, username, avatarUrl, status)')
+    .eq('conversationId', conversationId);
+
+  return { conversationId, members: members || [] };
+};
+
+export const removeGroupMember = async (
+  conversationId: string,
+  requesterId: string,
+  targetUserId: string
+) => {
+  // If requester is not removing self, verify requester is admin
+  if (requesterId !== targetUserId) {
+    const { data: requesterMember } = await supabaseAdmin
+      .from('ConversationMember')
+      .select('role')
+      .eq('conversationId', conversationId)
+      .eq('userId', requesterId)
+      .single();
+
+    if (!requesterMember || (requesterMember.role && requesterMember.role !== 'admin')) {
+      throw new Error('Only Group Admins can remove members');
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from('ConversationMember')
+    .delete()
+    .eq('conversationId', conversationId)
+    .eq('userId', targetUserId);
+
+  if (error) throw new Error(`Failed to remove member: ${error.message}`);
+  return { conversationId, targetUserId };
+};
+
+export const updateMemberRole = async (
+  conversationId: string,
+  requesterId: string,
+  targetUserId: string,
+  newRole: 'admin' | 'member'
+) => {
+  // Validate requester is group admin
+  const { data: requesterMember } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('role')
+    .eq('conversationId', conversationId)
+    .eq('userId', requesterId)
+    .single();
+
+  if (!requesterMember || (requesterMember.role && requesterMember.role !== 'admin')) {
+    throw new Error('Only Group Admins can change member roles');
+  }
+
+  const { error } = await supabaseAdmin
+    .from('ConversationMember')
+    .update({ role: newRole })
+    .eq('conversationId', conversationId)
+    .eq('userId', targetUserId);
+
+  if (error) throw new Error(`Failed to update member role: ${error.message}`);
+
+  const { data: members } = await supabaseAdmin
+    .from('ConversationMember')
+    .select('role, user:User(id, username, avatarUrl, status)')
+    .eq('conversationId', conversationId);
+
+  return { conversationId, members: members || [] };
 };
 
 

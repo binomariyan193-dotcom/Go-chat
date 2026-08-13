@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { LogOut, UserPlus, Check, X, Search, Clock, Settings, Trash2, Users, MessageSquare, UserMinus } from 'lucide-react';
 import { Modal } from '../common/Modal';
 import { EditProfileModal } from '../profile/EditProfileModal';
+import { CreateGroupModal } from './CreateGroupModal';
 import { ImageLightbox } from './ImageLightbox';
 import { api } from '../../services/api';
 import { Button } from '../common/Button';
@@ -19,6 +20,7 @@ interface SidebarProps {
   onSelectConversation: (conv: Conversation) => void;
   onRefreshConversations?: () => void;
   onDeleteConversation?: (convId: string) => void;
+  onCreateGroup?: (data: { name: string; description?: string; avatarUrl?: string; memberUserIds: string[] }) => Promise<void>;
 }
 
 interface SearchedUser extends User {
@@ -47,10 +49,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectConversation,
   onRefreshConversations,
   onDeleteConversation,
+  onCreateGroup,
 }) => {
   const { user, logout, updateUser } = useAuth();
   const { socket } = useSocketContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isMyAvatarLightboxOpen, setIsMyAvatarLightboxOpen] = useState(false);
   const [modalTab, setModalTab] = useState<'friends' | 'search' | 'requests'>('friends');
@@ -301,50 +305,73 @@ export const Sidebar: React.FC<SidebarProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
+          gap: '8px',
         }}
       >
         <LoopInLogo size={26} />
-        <button
-          onClick={() => {
-            setIsModalOpen(true);
-            fetchFriendsList();
-            fetchPendingRequests();
-          }}
-          style={{
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--glass-border)',
-            color: '#fff',
-            borderRadius: 'var(--radius-md)',
-            padding: '6px 12px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '0.82rem',
-            fontWeight: 600,
-            position: 'relative',
-          }}
-        >
-          <UserPlus size={16} /> Add / Friends
-          {pendingRequests.length > 0 && (
-            <span
-              style={{
-                backgroundColor: '#ef4444',
-                color: '#fff',
-                borderRadius: '50%',
-                width: 16,
-                height: 16,
-                fontSize: '0.7rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontWeight: 700,
-              }}
-            >
-              {pendingRequests.length}
-            </span>
-          )}
-        </button>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            onClick={() => setIsCreateGroupOpen(true)}
+            style={{
+              background: 'rgba(56, 189, 248, 0.15)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: '#38bdf8',
+              borderRadius: 'var(--radius-md)',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+            }}
+            title="Create Custom Group Chat Channel"
+          >
+            <Users size={15} /> + Group
+          </button>
+
+          <button
+            onClick={() => {
+              setIsModalOpen(true);
+              fetchFriendsList();
+              fetchPendingRequests();
+            }}
+            style={{
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--glass-border)',
+              color: '#fff',
+              borderRadius: 'var(--radius-md)',
+              padding: '6px 10px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              position: 'relative',
+            }}
+          >
+            <UserPlus size={15} /> Friends
+            {pendingRequests.length > 0 && (
+              <span
+                style={{
+                  backgroundColor: '#ef4444',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  width: 16,
+                  height: 16,
+                  fontSize: '0.7rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                }}
+              >
+                {pendingRequests.length}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Conversation List */}
@@ -751,6 +778,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         )}
       </Modal>
+
+      {/* Create Custom Group Modal */}
+      {onCreateGroup && (
+        <CreateGroupModal
+          isOpen={isCreateGroupOpen}
+          onClose={() => setIsCreateGroupOpen(false)}
+          onCreateGroup={onCreateGroup}
+        />
+      )}
 
       {/* Edit Profile Modal */}
       <EditProfileModal isOpen={isProfileModalOpen} onClose={() => setIsProfileModalOpen(false)} />

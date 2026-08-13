@@ -243,12 +243,43 @@ export const useChat = () => {
       );
     };
 
+    const handleNewGroupCreated = (data: { userId: string; conversation: Conversation }) => {
+      if (user && data.userId === user.id) {
+        setConversations((prev) => {
+          if (prev.some((c) => c.id === data.conversation.id)) return prev;
+          return [data.conversation, ...prev];
+        });
+        if (socket) socket.emit('join_room', data.conversation.id);
+      }
+    };
+
+    const handleGroupInfoUpdated = (data: { conversationId: string; conversation: any }) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === data.conversationId ? { ...c, ...data.conversation } : c))
+      );
+      setActiveConversationState((prev) =>
+        prev?.id === data.conversationId ? { ...prev, ...data.conversation } : prev
+      );
+    };
+
+    const handleGroupMembersChanged = (data: { conversationId: string; members: any[] }) => {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === data.conversationId ? { ...c, members: data.members } : c))
+      );
+      setActiveConversationState((prev) =>
+        prev?.id === data.conversationId ? { ...prev, members: data.members } : prev
+      );
+    };
+
     socket.on('new_message', handleNewMessage);
     socket.on('message_edited', handleMessageEdited);
     socket.on('conversation_deleted', handleConversationDeleted);
     socket.on('message_deleted', handleMessageDeleted);
     socket.on('user_status_changed', handleUserStatusChanged);
     socket.on('message_reaction_updated', handleReactionUpdated);
+    socket.on('new_group_created', handleNewGroupCreated);
+    socket.on('group_info_updated', handleGroupInfoUpdated);
+    socket.on('group_members_changed', handleGroupMembersChanged);
 
     return () => {
       socket.off('new_message', handleNewMessage);
@@ -257,6 +288,9 @@ export const useChat = () => {
       socket.off('message_deleted', handleMessageDeleted);
       socket.off('user_status_changed', handleUserStatusChanged);
       socket.off('message_reaction_updated', handleReactionUpdated);
+      socket.off('new_group_created', handleNewGroupCreated);
+      socket.off('group_info_updated', handleGroupInfoUpdated);
+      socket.off('group_members_changed', handleGroupMembersChanged);
     };
   }, [socket, user]);
 
@@ -350,6 +384,86 @@ export const useChat = () => {
     });
   };
 
+  // Group Management Actions
+  const createGroup = async (groupData: { name: string; description?: string; avatarUrl?: string; memberUserIds: string[] }) => {
+    hapticMedium();
+    const res = await api.post('/chat/groups', groupData);
+    const newConv: Conversation = res.data;
+    setConversations((prev) => [newConv, ...prev]);
+    setActiveConversationState(newConv);
+
+    if (socket) {
+      socket.emit('join_room', newConv.id);
+      socket.emit('group_created', { conversation: newConv, memberUserIds: [user?.id, ...groupData.memberUserIds] });
+    }
+  };
+
+  const updateGroupDetails = async (conversationId: string, updates: { name?: string; description?: string; avatarUrl?: string }) => {
+    hapticMedium();
+    const res = await api.patch(`/chat/groups/${conversationId}`, updates);
+    const updated = res.data;
+    setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, ...updated } : c)));
+    setActiveConversationState((prev) => (prev?.id === conversationId ? { ...prev, ...updated } : prev));
+
+    if (socket) {
+      socket.emit('group_updated', { conversationId, conversation: updated });
+    }
+  };
+
+  const addGroupMembers = async (conversationId: string, userIds: string[]) => {
+    hapticMedium();
+    const res = await api.post(`/chat/groups/${conversationId}/members`, { userIds });
+    const { members } = res.data;
+    setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, members } : c)));
+    setActiveConversationState((prev) => (prev?.id === conversationId ? { ...prev, members } : prev));
+
+    if (socket) {
+      socket.emit('group_members_updated', { conversationId, members });
+    }
+  };
+
+  const removeGroupMember = async (conversationId: string, targetUserId: string) => {
+    hapticWarning();
+    await api.delete(`/chat/groups/${conversationId}/members/${targetUserId}`);
+    if (targetUserId === user?.id) {
+      // User left group
+      delete messageCacheRef.current[conversationId];
+      setConversations((prev) => prev.filter((c) => c.id !== conversationId));
+      if (activeConversation?.id === conversationId) {
+        const remaining = conversations.filter((c) => c.id !== conversationId);
+        setActiveConversationState(remaining.length > 0 ? remaining[0] : null);
+        setMessages([]);
+      }
+    } else {
+      // Member removed
+      setConversations((prev) =>
+        prev.map((c) => (c.id === conversationId ? { ...c, members: c.members.filter((m) => m.user.id !== targetUserId) } : c))
+      );
+      setActiveConversationState((prev) =>
+        prev?.id === conversationId ? { ...prev, members: prev.members.filter((m) => m.user.id !== targetUserId) } : prev
+      );
+    }
+
+    if (socket) {
+      socket.emit('group_members_updated', {
+        conversationId,
+        members: activeConversation?.members.filter((m) => m.user.id !== targetUserId) || [],
+      });
+    }
+  };
+
+  const updateMemberRole = async (conversationId: string, targetUserId: string, role: 'admin' | 'member') => {
+    hapticMedium();
+    const res = await api.patch(`/chat/groups/${conversationId}/members/${targetUserId}/role`, { role });
+    const { members } = res.data;
+    setConversations((prev) => prev.map((c) => (c.id === conversationId ? { ...c, members } : c)));
+    setActiveConversationState((prev) => (prev?.id === conversationId ? { ...prev, members } : prev));
+
+    if (socket) {
+      socket.emit('group_members_updated', { conversationId, members });
+    }
+  };
+
   // Merge unreadCounts into conversations array
   const conversationsWithUnread = conversations.map((c) => ({
     ...c,
@@ -367,6 +481,11 @@ export const useChat = () => {
     deleteMessage,
     deleteConversation,
     reactToMessage,
+    createGroup,
+    updateGroupDetails,
+    addGroupMembers,
+    removeGroupMember,
+    updateMemberRole,
     refreshConversations: fetchConversations,
   };
 };
