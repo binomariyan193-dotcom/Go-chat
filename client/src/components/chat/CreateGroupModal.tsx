@@ -46,7 +46,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({
     const fetchFriends = async () => {
       try {
         setIsLoadingFriends(true);
-        const res = await api.get('/friends/accepted');
+        const res = await api.get('/friends/list');
         setFriends(res.data || []);
       } catch (err) {
         console.error('Failed to fetch friends for group invite:', err);

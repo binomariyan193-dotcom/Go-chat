@@ -58,7 +58,7 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
 
     const fetchFriends = async () => {
       try {
-        const res = await api.get('/friends/accepted');
+        const res = await api.get('/friends/list');
         const friendsList: User[] = res.data || [];
         const existingMemberIds = conversation.members.map((m) => m.user.id);
         const inviteable = friendsList.filter((f) => !existingMemberIds.includes(f.id));

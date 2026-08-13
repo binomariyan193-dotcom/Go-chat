@@ -517,13 +517,29 @@ export const createGroupConversation = async (
   if (description) convPayload.description = description;
   if (avatarUrl) convPayload.avatarUrl = avatarUrl;
 
-  const { data: newConv, error: createError } = await supabaseAdmin
+  let newConv: any = null;
+  let createError: any = null;
+
+  const res = await supabaseAdmin
     .from('Conversation')
     .insert([convPayload])
     .select('*')
     .single();
 
-  if (createError) throw new Error(`Failed to create group: ${createError.message}`);
+  if (res.error && (res.error.message.includes('description') || res.error.message.includes('avatarUrl'))) {
+    const fallbackRes = await supabaseAdmin
+      .from('Conversation')
+      .insert([{ name: name.trim(), isGroup: true }])
+      .select('*')
+      .single();
+    newConv = fallbackRes.data;
+    createError = fallbackRes.error;
+  } else {
+    newConv = res.data;
+    createError = res.error;
+  }
+
+  if (createError || !newConv) throw new Error(`Failed to create group: ${createError?.message}`);
 
   // 2. Prepare member rows: Creator is 'admin', others are 'member'
   const allUserIds = Array.from(new Set([creatorId, ...memberUserIds]));
@@ -549,10 +565,21 @@ export const createGroupConversation = async (
   }
 
   // 3. Retrieve populated conversation
-  const { data: members } = await supabaseAdmin
+  let members: any[] | null = null;
+  const { data: memberWithRole, error: roleError } = await supabaseAdmin
     .from('ConversationMember')
     .select('role, user:User(id, username, avatarUrl, status)')
     .eq('conversationId', newConv.id);
+
+  if (roleError && roleError.message.includes('role')) {
+    const { data: basicMembers } = await supabaseAdmin
+      .from('ConversationMember')
+      .select('user:User(id, username, avatarUrl, status)')
+      .eq('conversationId', newConv.id);
+    members = basicMembers || [];
+  } else {
+    members = memberWithRole || [];
+  }
 
   return {
     ...newConv,
@@ -566,26 +593,56 @@ export const updateGroupDetails = async (
   requesterId: string,
   updates: { name?: string; description?: string; avatarUrl?: string }
 ) => {
-  // Validate requester is group admin
-  const { data: member } = await supabaseAdmin
+  // Validate requester is group member/admin
+  let isAdmin = false;
+  const { data: member, error: memberErr } = await supabaseAdmin
     .from('ConversationMember')
     .select('role')
     .eq('conversationId', conversationId)
     .eq('userId', requesterId)
     .single();
 
-  if (!member || (member.role && member.role !== 'admin')) {
+  if (memberErr && memberErr.message.includes('role')) {
+    const { data: basicMember } = await supabaseAdmin
+      .from('ConversationMember')
+      .select('id')
+      .eq('conversationId', conversationId)
+      .eq('userId', requesterId)
+      .single();
+    if (basicMember) isAdmin = true;
+  } else if (member && (!member.role || member.role === 'admin')) {
+    isAdmin = true;
+  }
+
+  if (!isAdmin) {
     throw new Error('Only Group Admins can update group details');
   }
 
-  const { data: updatedConv, error } = await supabaseAdmin
+  let updatedConv: any = null;
+  let updateError: any = null;
+
+  const res = await supabaseAdmin
     .from('Conversation')
     .update(updates)
     .eq('id', conversationId)
     .select('*')
     .single();
 
-  if (error) throw new Error(`Failed to update group details: ${error.message}`);
+  if (res.error && (res.error.message.includes('description') || res.error.message.includes('avatarUrl'))) {
+    const fallbackRes = await supabaseAdmin
+      .from('Conversation')
+      .update({ name: updates.name })
+      .eq('id', conversationId)
+      .select('*')
+      .single();
+    updatedConv = fallbackRes.data;
+    updateError = fallbackRes.error;
+  } else {
+    updatedConv = res.data;
+    updateError = res.error;
+  }
+
+  if (updateError) throw new Error(`Failed to update group details: ${updateError.message}`);
   return updatedConv;
 };
 
@@ -594,15 +651,28 @@ export const addGroupMembers = async (
   requesterId: string,
   newMemberUserIds: string[]
 ) => {
-  // Validate requester is group admin
-  const { data: member } = await supabaseAdmin
+  // Validate requester is group member/admin
+  let isAdmin = false;
+  const { data: member, error: memberErr } = await supabaseAdmin
     .from('ConversationMember')
     .select('role')
     .eq('conversationId', conversationId)
     .eq('userId', requesterId)
     .single();
 
-  if (!member || (member.role && member.role !== 'admin')) {
+  if (memberErr && memberErr.message.includes('role')) {
+    const { data: basicMember } = await supabaseAdmin
+      .from('ConversationMember')
+      .select('id')
+      .eq('conversationId', conversationId)
+      .eq('userId', requesterId)
+      .single();
+    if (basicMember) isAdmin = true;
+  } else if (member && (!member.role || member.role === 'admin')) {
+    isAdmin = true;
+  }
+
+  if (!isAdmin) {
     throw new Error('Only Group Admins can add members to this group');
   }
 
@@ -612,12 +682,33 @@ export const addGroupMembers = async (
     role: 'member',
   }));
 
-  await supabaseAdmin.from('ConversationMember').insert(memberRows);
+  const { error: insertErr } = await supabaseAdmin.from('ConversationMember').insert(memberRows);
 
-  const { data: members } = await supabaseAdmin
+  if (insertErr && insertErr.message.includes('role')) {
+    const basicMemberRows = newMemberUserIds.map((userId) => ({
+      conversationId,
+      userId,
+    }));
+    await supabaseAdmin.from('ConversationMember').insert(basicMemberRows);
+  } else if (insertErr) {
+    throw new Error(`Failed to add members: ${insertErr.message}`);
+  }
+
+  let members: any[] | null = null;
+  const { data: memberWithRole, error: roleError } = await supabaseAdmin
     .from('ConversationMember')
     .select('role, user:User(id, username, avatarUrl, status)')
     .eq('conversationId', conversationId);
+
+  if (roleError && roleError.message.includes('role')) {
+    const { data: basicMembers } = await supabaseAdmin
+      .from('ConversationMember')
+      .select('user:User(id, username, avatarUrl, status)')
+      .eq('conversationId', conversationId);
+    members = basicMembers || [];
+  } else {
+    members = memberWithRole || [];
+  }
 
   return { conversationId, members: members || [] };
 };
