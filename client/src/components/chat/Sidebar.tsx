@@ -415,9 +415,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="conversation-item"
               >
                 <Avatar
-                  src={otherMember?.avatarUrl}
+                  src={conv.isGroup ? conv.avatarUrl : otherMember?.avatarUrl}
                   name={chatName || ''}
-                  status={otherMember?.status || 'offline'}
+                  status={conv.isGroup ? undefined : (otherMember?.status || 'offline')}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
