@@ -591,8 +591,11 @@ export const createGroupConversation = async (
 export const updateGroupDetails = async (
   conversationId: string,
   requesterId: string,
-  updates: { name?: string; description?: string; avatarUrl?: string }
+  updates: { name?: string; description?: string; avatarUrl?: string | null }
 ) => {
+  if (updates.avatarUrl === '' || updates.avatarUrl === null) {
+    updates.avatarUrl = null;
+  }
   // Validate requester is group member/admin
   let isAdmin = false;
   const { data: member, error: memberErr } = await supabaseAdmin

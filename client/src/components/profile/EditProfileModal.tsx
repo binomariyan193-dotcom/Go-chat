@@ -4,7 +4,7 @@ import { Button } from '../common/Button';
 import { useAuth } from '../../context/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
 import { api } from '../../services/api';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, Trash2 } from 'lucide-react';
 import { Avatar } from '../common/Avatar';
 import { ImageCropperModal } from './ImageCropperModal';
 import { ImageLightbox } from '../chat/ImageLightbox';
@@ -148,9 +148,33 @@ export const EditProfileModal: React.FC<EditProfileModalProps> = ({ isOpen, onCl
                 {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Camera size={14} />}
               </button>
             </div>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
-              Click camera icon to pick and crop profile picture
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                Click camera to pick & crop
+              </span>
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={() => setAvatarUrl('')}
+                  style={{
+                    background: 'none',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    color: '#ef4444',
+                    borderRadius: '8px',
+                    padding: '2px 8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  title="Remove Profile Photo"
+                >
+                  <Trash2 size={12} /> Remove Photo
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Username Input */}

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, ShieldCheck, UserMinus, UserCheck, Edit2, Check, Image as ImageIcon, LogOut, UserPlus, Loader2 } from 'lucide-react';
+import { X, ShieldCheck, UserMinus, UserCheck, Edit2, Check, Image as ImageIcon, LogOut, UserPlus, Loader2, Trash2 } from 'lucide-react';
 import { Conversation, User } from '../../types/chat';
 import { useAuth } from '../../context/AuthContext';
 import { useImageUpload } from '../../hooks/useImageUpload';
@@ -102,6 +102,20 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
       setSelectedFile(null);
     } catch (err: any) {
       alert(err.response?.data?.error || 'Failed to update group settings');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRemoveGroupPhoto = async () => {
+    try {
+      hapticMedium();
+      setIsSubmitting(true);
+      setPreviewAvatar(null);
+      setSelectedFile(null);
+      await onUpdateGroup(conversation.id, { avatarUrl: '' });
+    } catch (err: any) {
+      alert(err.response?.data?.error || 'Failed to remove group photo');
     } finally {
       setIsSubmitting(false);
     }
@@ -241,6 +255,7 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
                       cursor: 'pointer',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
                     }}
+                    title="Upload Group Photo"
                   >
                     <ImageIcon size={15} />
                   </button>
@@ -254,6 +269,30 @@ export const GroupSettingsModal: React.FC<GroupSettingsModalProps> = ({
                 </>
               )}
             </div>
+
+            {isAdmin && isEditing && (previewAvatar || conversation.avatarUrl) && (
+              <button
+                type="button"
+                onClick={handleRemoveGroupPhoto}
+                disabled={isSubmitting}
+                style={{
+                  background: 'none',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  color: '#ef4444',
+                  borderRadius: '8px',
+                  padding: '4px 10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginTop: '4px',
+                }}
+              >
+                <Trash2 size={12} /> Remove Group Photo
+              </button>
+            )}
 
             {/* Editable Group Name & Description */}
             {isEditing ? (

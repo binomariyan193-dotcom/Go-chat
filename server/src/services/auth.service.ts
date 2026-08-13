@@ -91,8 +91,12 @@ export const loginUser = async (email: string, password: string) => {
 
 export const updateUserProfile = async (
   userId: string,
-  updates: { username?: string; avatarUrl?: string; status?: string }
+  updates: { username?: string; avatarUrl?: string | null; status?: string }
 ) => {
+  if (updates.avatarUrl === '' || updates.avatarUrl === null) {
+    updates.avatarUrl = null;
+  }
+
   if (updates.username) {
     const cleanUsername = updates.username.trim();
     // Case-insensitive username uniqueness check
