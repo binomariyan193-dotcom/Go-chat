@@ -25,11 +25,26 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isMe = false
     audioRef.current = audio;
 
     const handleLoadedMetadata = () => {
-      setDuration(audio.duration || 0);
+      // Fix for WebM voice notes recorded in Chrome/Firefox where duration is reported as Infinity
+      if (audio.duration === Infinity || isNaN(audio.duration)) {
+        audio.currentTime = 1e101;
+        const handleSeeked = () => {
+          audio.removeEventListener('seeked', handleSeeked);
+          setDuration(audio.duration || 0);
+          audio.currentTime = 0;
+        };
+        audio.addEventListener('seeked', handleSeeked);
+      } else {
+        setDuration(audio.duration || 0);
+      }
     };
 
     const handleTimeUpdate = () => {
       setCurrentTime(audio.currentTime || 0);
+      // Dynamic fallback for WebM audio duration if still infinite or unmeasured
+      if (!isFinite(audio.duration)) {
+        setDuration((prev) => Math.max(prev, audio.currentTime || 0));
+      }
     };
 
     const handleEnded = () => {
@@ -49,7 +64,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isMe = false
     };
   }, [audioUrl]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     hapticLight();
     const audio = audioRef.current;
     if (!audio) return;
@@ -58,9 +73,14 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({ audioUrl, isMe = false
       audio.pause();
       setIsPlaying(false);
     } else {
-      audio.playbackRate = playbackRate;
-      audio.play().catch((err) => console.error('Audio playback failed:', err));
-      setIsPlaying(true);
+      try {
+        audio.playbackRate = playbackRate;
+        await audio.play();
+        setIsPlaying(true);
+      } catch (err) {
+        console.error('Audio playback failed:', err);
+        setIsPlaying(false);
+      }
     }
   };
 
