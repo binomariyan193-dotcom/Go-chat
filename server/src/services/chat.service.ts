@@ -58,13 +58,13 @@ export const getUserConversations = async (userId: string) => {
       let members: any[] | null = null;
       const { data: memberWithRole, error: roleError } = await supabaseAdmin
         .from('ConversationMember')
-        .select('role, user:User(id, username, avatarUrl, status)')
+        .select('role, encryptedKey, user:User(id, username, avatarUrl, status, publicKey)')
         .eq('conversationId', conv.id);
 
-      if (roleError && roleError.message.includes('role')) {
+      if (roleError && (roleError.message.includes('role') || roleError.message.includes('encryptedKey') || roleError.message.includes('publicKey'))) {
         const { data: basicMembers } = await supabaseAdmin
           .from('ConversationMember')
-          .select('user:User(id, username, avatarUrl, status)')
+          .select('user:User(id, username, avatarUrl, status, publicKey)')
           .eq('conversationId', conv.id);
         members = basicMembers || [];
       } else {
@@ -156,7 +156,7 @@ export const getConversationMessages = async (conversationId: string) => {
   let messages: any[] | null = null;
   let fetchError: any = null;
 
-  // Try fetching with audioUrl
+  // Try fetching with audioUrl & E2EE fields
   const result = await supabaseAdmin
     .from('Message')
     .select(`
@@ -166,14 +166,17 @@ export const getConversationMessages = async (conversationId: string) => {
       textContent,
       imageUrl,
       audioUrl,
+      isEncrypted,
+      ciphertext,
+      iv,
       createdAt,
-      sender:User (id, username, avatarUrl)
+      sender:User (id, username, avatarUrl, publicKey)
     `)
     .eq('conversationId', conversationId)
     .order('createdAt', { ascending: true });
 
-  if (result.error && result.error.message.includes('audioUrl')) {
-    // Fallback query if audioUrl column not created in Supabase SQL editor yet
+  if (result.error && (result.error.message.includes('audioUrl') || result.error.message.includes('ciphertext'))) {
+    // Fallback query if columns missing in Supabase SQL editor yet
     const fallbackResult = await supabaseAdmin
       .from('Message')
       .select(`
@@ -240,7 +243,10 @@ export const createMessage = async (
   senderId: string,
   textContent?: string,
   imageUrl?: string,
-  audioUrl?: string
+  audioUrl?: string,
+  isEncrypted?: boolean,
+  ciphertext?: string,
+  iv?: string
 ) => {
   const insertPayload: any = {
     conversationId,
@@ -249,9 +255,10 @@ export const createMessage = async (
     imageUrl,
   };
 
-  if (audioUrl) {
-    insertPayload.audioUrl = audioUrl;
-  }
+  if (audioUrl) insertPayload.audioUrl = audioUrl;
+  if (isEncrypted !== undefined) insertPayload.isEncrypted = isEncrypted;
+  if (ciphertext) insertPayload.ciphertext = ciphertext;
+  if (iv) insertPayload.iv = iv;
 
   const { data: newMessage, error } = await supabaseAdmin
     .from('Message')
@@ -263,12 +270,15 @@ export const createMessage = async (
       textContent,
       imageUrl,
       audioUrl,
+      isEncrypted,
+      ciphertext,
+      iv,
       createdAt,
-      sender:User (id, username, avatarUrl)
+      sender:User (id, username, avatarUrl, publicKey)
     `)
     .single();
 
-  if (error && error.message.includes('audioUrl')) {
+  if (error && (error.message.includes('audioUrl') || error.message.includes('ciphertext'))) {
     const fallbackPayload: any = {
       conversationId,
       senderId,

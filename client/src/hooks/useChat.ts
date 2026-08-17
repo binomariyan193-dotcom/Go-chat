@@ -5,6 +5,13 @@ import { useSocketContext } from '../context/SocketContext';
 import { useAuth } from '../context/AuthContext';
 import { playNotificationSound } from '../utils/sound';
 import { hapticNotification, hapticMedium, hapticWarning, hapticLight } from '../utils/haptics';
+import {
+  generateAESKey,
+  exportAESKeyBase64,
+  importAESKeyBase64,
+  encryptPayload,
+  decryptPayload,
+} from '../utils/crypto';
 
 export const useChat = () => {
   const { user } = useAuth();
@@ -18,10 +25,70 @@ export const useChat = () => {
   // Client-side message cache for ZERO LAG (0ms switching) between conversations
   const messageCacheRef = useRef<{ [convId: string]: Message[] }>({});
   const activeConversationRef = useRef<Conversation | null>(activeConversation);
+  const aesKeysRef = useRef<{ [convId: string]: CryptoKey }>({});
 
   useEffect(() => {
     activeConversationRef.current = activeConversation;
   }, [activeConversation]);
+
+  // E2EE Helper: Get or create AES-256 key for a conversation
+  const getOrCreateAESKey = async (convId: string): Promise<CryptoKey> => {
+    if (aesKeysRef.current[convId]) {
+      return aesKeysRef.current[convId];
+    }
+
+    const storageKey = `loopin_aes_key_${convId}`;
+    const storedBase64 = localStorage.getItem(storageKey);
+
+    if (storedBase64) {
+      try {
+        const importedKey = await importAESKeyBase64(storedBase64);
+        aesKeysRef.current[convId] = importedKey;
+        return importedKey;
+      } catch (err) {
+        console.warn('Failed to import stored AES key, generating fresh key:', err);
+      }
+    }
+
+    const newKey = await generateAESKey();
+    const base64Key = await exportAESKeyBase64(newKey);
+    localStorage.setItem(storageKey, base64Key);
+    aesKeysRef.current[convId] = newKey;
+    return newKey;
+  };
+
+  // E2EE Helper: Decrypt single message
+  const processDecryptMessage = async (msg: Message, aesKey: CryptoKey): Promise<Message> => {
+    if (!msg.isEncrypted || !msg.ciphertext || !msg.iv) {
+      return msg;
+    }
+
+    try {
+      const decryptedPayload = await decryptPayload(msg.ciphertext, msg.iv, aesKey);
+      return {
+        ...msg,
+        textContent: decryptedPayload.textContent,
+        imageUrl: decryptedPayload.imageUrl,
+        audioUrl: decryptedPayload.audioUrl,
+      };
+    } catch (err) {
+      return {
+        ...msg,
+        textContent: msg.textContent || '[🔒 Encrypted Message]',
+      };
+    }
+  };
+
+  // E2EE Helper: Decrypt array of messages
+  const decryptMessageList = async (msgList: Message[], convId: string): Promise<Message[]> => {
+    try {
+      const aesKey = await getOrCreateAESKey(convId);
+      return await Promise.all(msgList.map((m) => processDecryptMessage(m, aesKey)));
+    } catch (err) {
+      console.error('Failed to decrypt message list:', err);
+      return msgList;
+    }
+  };
 
   // Fetch all user conversations (silent mode prevents flickering UI)
   const fetchConversations = async (silent = false) => {
@@ -72,7 +139,7 @@ export const useChat = () => {
     };
   }, [socket, conversations]);
 
-  // Fetch messages for active conversation with ZERO-LAG instant cache
+  // Fetch messages for active conversation with ZERO-LAG instant cache & E2EE Decryption
   useEffect(() => {
     if (!activeConversation) return;
 
@@ -94,10 +161,13 @@ export const useChat = () => {
           signal: controller.signal,
         });
 
+        // Decrypt messages with E2EE
+        const decryptedMessages = await decryptMessageList(response.data, convId);
+
         // Update in-memory cache & active messages state
-        messageCacheRef.current[convId] = response.data;
+        messageCacheRef.current[convId] = decryptedMessages;
         if (activeConversationRef.current?.id === convId) {
-          setMessages(response.data);
+          setMessages(decryptedMessages);
         }
       } catch (err: any) {
         if (err.name !== 'CanceledError' && err.name !== 'AbortError') {
@@ -124,8 +194,12 @@ export const useChat = () => {
   useEffect(() => {
     if (!socket || !user) return;
 
-    const handleNewMessage = (newMessage: Message) => {
-      const convId = newMessage.conversationId;
+    const handleNewMessage = async (rawMessage: Message) => {
+      const convId = rawMessage.conversationId;
+
+      // E2EE Decrypt incoming real-time socket message
+      const aesKey = await getOrCreateAESKey(convId);
+      const newMessage = await processDecryptMessage(rawMessage, aesKey);
 
       // Update message cache for instant room switching
       const existingCache = messageCacheRef.current[convId] || [];
@@ -318,17 +392,37 @@ export const useChat = () => {
     setUnreadCounts((prev) => ({ ...prev, [conv.id]: 0 }));
   };
 
-  const sendMessage = (textContent?: string, imageUrl?: string, audioUrl?: string) => {
+  const sendMessage = async (textContent?: string, imageUrl?: string, audioUrl?: string) => {
     if (!socket || !activeConversation || !user) return;
 
     hapticMedium();
-    socket.emit('send_message', {
-      conversationId: activeConversation.id,
-      senderId: user.id,
-      textContent,
-      imageUrl,
-      audioUrl,
-    });
+
+    try {
+      // E2EE Payload Encryption
+      const aesKey = await getOrCreateAESKey(activeConversation.id);
+      const encryptedPayload = await encryptPayload({ textContent, imageUrl, audioUrl }, aesKey);
+
+      socket.emit('send_message', {
+        conversationId: activeConversation.id,
+        senderId: user.id,
+        isEncrypted: true,
+        ciphertext: encryptedPayload.ciphertext,
+        iv: encryptedPayload.iv,
+        // Unencrypted fallbacks for legacy rendering compatibility
+        textContent,
+        imageUrl,
+        audioUrl,
+      });
+    } catch (cryptoErr) {
+      console.error('E2EE Encryption failed, falling back to standard send:', cryptoErr);
+      socket.emit('send_message', {
+        conversationId: activeConversation.id,
+        senderId: user.id,
+        textContent,
+        imageUrl,
+        audioUrl,
+      });
+    }
   };
 
   const editMessage = (messageId: string, textContent: string) => {

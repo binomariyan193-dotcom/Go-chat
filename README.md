@@ -28,41 +28,46 @@
 * **Top Conversation Sorting**: Chat rooms with the most recent messages automatically bump to the top of your sidebar list in real-time.
 * **Unread Notifications**: Red sidebar badge counters, Web Audio API chime notifications, and dynamic browser tab title indicators (`(1) New Message - LoopIN`).
 
-### 🎙️ 2. Voice Notes Recording & Playback
+### 🔐 2. End-to-End Encryption (E2EE)
+* **Web Crypto API Engine**: Native browser `window.crypto.subtle` AES-256-GCM symmetric payload encryption with RSA-OAEP 2048-bit identity key pairs.
+* **Zero-Knowledge Server & Storage**: Message text, shared photo attachments, and voice notes are encrypted before leaving the client browser. Database and WebSockets only see encrypted ciphertexts.
+* **Visual E2EE Indicators**: Green security shields (`🔒 E2EE`) in active chat headers and lock icons next to message timestamps.
+
+### 🎙️ 3. Voice Notes Recording & Playback
 * **Audio Recorder & Waveform UI**: Record voice notes directly from the input bar with live duration counters and visualizers.
 * **In-App Audio Player**: Sleek voice player with play/pause toggles and custom scrub bars embedded seamlessly in message bubbles.
 
-### 😃 3. Message Emoji Reactions
+### 😃 4. Message Emoji Reactions
 * **Quick Emoji Picker Bar**: Hover or tap any message to react with top emojis (❤️ 👍 😂 🔥 😮 😢).
 * **Live Reaction Badges**: Displays aggregated reaction badges under messages updated in real-time across connected clients via WebSockets.
 
-### 👥 4. Group Chat Management & Roles
+### 👥 5. Group Chat Management & Roles
 * **Group Creation & Customization**: Create custom group chats with group name, description, avatar upload, and member selection.
 * **Admin & Member Roles**: Dedicated group permission controls for admins to add/remove members and update group settings.
 
-### 🗑️ 5. Real-Time Room & Message Deletion
+### 🗑️ 6. Real-Time Room & Message Deletion
 * **Delete Individual Messages**: Senders can delete specific sent messages 🗑️ with real-time room broadcasts (`delete_message`).
 * **Delete Entire Chat Rooms**: Delete active chat rooms from the sidebar or header menu 🗑️ with real-time socket updates (`delete_conversation`).
 
-### 📷 6. Lossless WebP Image Sharing & 1:1 Avatar Cropper
+### 📷 7. Lossless WebP Image Sharing & 1:1 Avatar Cropper
 * **WebP Lossless Compression**: Client-side HTML5 Canvas compressor converts images to 100% quality WebP format before uploading to Supabase Storage.
 * **1:1 Cover Aspect Ratio Cropper**: Automatic cover scaling (`Math.max(280 / w, 280 / h)`), rule-of-thirds grid framing guides, touch drag gestures, and high-res 512x512 output.
 * **Full-Screen Lightbox Preview**: Click any shared image attachment or user avatar to view in full-resolution lightbox mode.
 
-### ⏱️ 7. 15-Second Message Editing
+### ⏱️ 8. 15-Second Message Editing
 * Senders can edit text messages within a **15-second countdown window**.
 * Live timer counts down (`Edit (15s)` ➔ `Edit (1s)`) and updates rooms in real time via WebSockets.
 
-### 🛡️ 8. Friend Requests & Privacy
+### 🛡️ 9. Friend Requests & Privacy
 * **Privacy-First Search**: Search users strictly by `username` and `avatarUrl` without exposing email addresses.
 * **Request System**: Send, accept, or decline pending friend requests. 1-on-1 direct messaging rooms automatically unlock upon request acceptance.
 
-### 🔒 9. Authentication & Security
+### 🔒 10. Authentication & Security
 * **Unique Username Enforcement**: Strict case-insensitive username uniqueness checks.
 * **Strong Password Policy**: All passwords must contain min 6 chars, 1 uppercase letter (`A-Z`), 1 lowercase letter (`a-z`), 1 number (`0-9`), and 1 special character (`!@#$%^&*`).
 * **Forgot Password Workflow**: 6-digit OTP code reset system with 15-minute expiration tracking.
 
-### 📱 10. Responsive Mobile Design & Resilient Cleanup
+### 📱 11. Responsive Mobile Design & Resilient Cleanup
 * **Single-Pane View Switching**: Mobile screens (`<= 768px`) automatically switch between full-screen Conversations Drawer and Chat Thread with 1-tap back arrow ⬅️.
 * **AbortController Race Condition Protection**: React `useEffect` hooks include `AbortController` cleanup functions to safely cancel pending HTTP requests when rapidly switching chat rooms.
 
@@ -70,7 +75,7 @@
 
 ## 🛠️ Technology Stack
 
-* **Frontend**: React (Vite), TypeScript, Lucide React Icons, HTML5 Canvas API, Web Audio API, MediaRecorder API.
+* **Frontend**: React (Vite), TypeScript, Web Crypto API (`SubtleCrypto`), Lucide React Icons, HTML5 Canvas API, Web Audio API, MediaRecorder API.
 * **Backend**: Node.js, Express, Socket.io, Bcrypt, JWT (`jsonwebtoken`), Multer.
 * **Database & Storage**: Supabase PostgreSQL & Supabase Storage Bucket (`chat-images`).
 
@@ -107,6 +112,7 @@ Execute the provided SQL migration scripts in your Supabase SQL Editor in order:
 4. `supabase_group_migration.sql` (Group description, avatar, and member roles)
 5. `supabase_reaction_migration.sql` (MessageReaction table for emoji reactions)
 6. `supabase_voice_migration.sql` (Voice Notes `audioUrl` column support)
+7. `supabase_e2ee_migration.sql` (End-to-End Encryption RSA public keys & ciphertext fields)
 
 ### 4. Running Development Servers
 

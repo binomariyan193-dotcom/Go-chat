@@ -4,6 +4,7 @@ export interface User {
   email: string;
   avatarUrl?: string;
   status?: 'online' | 'offline' | 'away';
+  publicKey?: string;
 }
 
 export interface Reaction {
@@ -19,11 +20,15 @@ export interface Message {
   textContent?: string;
   imageUrl?: string;
   audioUrl?: string;
+  isEncrypted?: boolean;
+  ciphertext?: string;
+  iv?: string;
   createdAt: string;
   sender: {
     id: string;
     username: string;
     avatarUrl?: string;
+    publicKey?: string;
   };
   reactions?: Reaction[];
 }

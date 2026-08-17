@@ -3,7 +3,7 @@ import { Conversation } from '../../types/chat';
 import { Avatar } from '../common/Avatar';
 import { useAuth } from '../../context/AuthContext';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { ArrowLeft, Trash2, Users } from 'lucide-react';
+import { ArrowLeft, Trash2, Users, ShieldCheck } from 'lucide-react';
 
 interface ChatHeaderProps {
   activeConversation: Conversation | null;
@@ -83,7 +83,26 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
           >
             <Avatar src={avatarUrl} name={title} status={isGroup ? undefined : (status as any)} size="md" />
             <div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#fff' }}>{title}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: 0, color: '#fff' }}>{title}</h3>
+                <span
+                  title="End-to-End Encrypted Room"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                    color: '#10b981',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '10px',
+                    padding: '1px 6px',
+                    fontSize: '0.68rem',
+                    fontWeight: 600,
+                  }}
+                >
+                  <ShieldCheck size={11} color="#10b981" /> E2EE
+                </span>
+              </div>
               <span style={{ fontSize: '0.78rem', color: isGroup ? '#38bdf8' : 'var(--text-secondary)' }}>
                 {activeConversation.description || status}
               </span>

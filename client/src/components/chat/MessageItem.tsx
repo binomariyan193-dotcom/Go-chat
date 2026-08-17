@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { formatTime } from '../../utils/format';
 import { Avatar } from '../common/Avatar';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { Edit2, Check, X, CheckCheck, Trash2, Smile } from 'lucide-react';
+import { Edit2, Check, X, CheckCheck, Trash2, Smile, Lock } from 'lucide-react';
 import { AudioPlayer } from './AudioPlayer';
 
 interface MessageItemProps {
@@ -261,6 +261,13 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
               {formatTime(message.createdAt)}
             </span>
+
+            {/* E2EE Lock Indicator */}
+            {message.isEncrypted !== false && (
+              <span title="End-to-End Encrypted (E2EE)" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                <Lock size={11} color="#10b981" style={{ opacity: 0.8 }} />
+              </span>
+            )}
 
             {/* Double Checkmark Status */}
             {isMe && (

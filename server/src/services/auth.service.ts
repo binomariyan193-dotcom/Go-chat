@@ -84,9 +84,25 @@ export const loginUser = async (email: string, password: string) => {
       username: user.username,
       avatarUrl: user.avatarUrl,
       status: user.status,
+      publicKey: user.publicKey,
     },
     token,
   };
+};
+
+export const updateUserPublicKey = async (userId: string, publicKey: string) => {
+  const { data: updatedUser, error } = await supabaseAdmin
+    .from('User')
+    .update({ publicKey })
+    .eq('id', userId)
+    .select('id, email, username, avatarUrl, status, publicKey')
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to update public key: ${error.message}`);
+  }
+
+  return updatedUser;
 };
 
 export const updateUserProfile = async (
@@ -117,7 +133,7 @@ export const updateUserProfile = async (
     .from('User')
     .update(updates)
     .eq('id', userId)
-    .select('id, email, username, avatarUrl, status')
+    .select('id, email, username, avatarUrl, status, publicKey')
     .single();
 
   if (error) {

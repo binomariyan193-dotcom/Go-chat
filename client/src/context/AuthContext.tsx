@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types/chat';
+import { generateRSAKeyPair, getStoredUserKeyPair, storeUserKeyPair } from '../utils/crypto';
+import { api } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -21,6 +23,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(() => {
     return localStorage.getItem('chat_token');
   });
+
+  // E2EE RSA Key Management setup
+  useEffect(() => {
+    if (!user || !token) return;
+
+    const setupUserCryptoKeys = async () => {
+      try {
+        let storedKeyPair = getStoredUserKeyPair(user.id);
+        if (!storedKeyPair) {
+          storedKeyPair = await generateRSAKeyPair();
+          storeUserKeyPair(user.id, storedKeyPair);
+        }
+
+        if (!user.publicKey || user.publicKey !== storedKeyPair.publicKeyJwk) {
+          const res = await api.put('/auth/public-key', { publicKey: storedKeyPair.publicKeyJwk });
+          if (res.data) {
+            updateUser({ publicKey: storedKeyPair.publicKeyJwk });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to setup E2EE crypto keys:', err);
+      }
+    };
+
+    setupUserCryptoKeys();
+  }, [user?.id, token]);
 
   const login = (newToken: string, newUser: User) => {
     setToken(newToken);

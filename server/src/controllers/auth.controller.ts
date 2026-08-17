@@ -41,6 +41,20 @@ export const handleUpdateProfile = async (req: AuthenticatedRequest, res: Respon
   }
 };
 
+export const handleUpdatePublicKey = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const { publicKey } = req.body;
+    if (!publicKey) {
+      return res.status(400).json({ error: 'Public key is required' });
+    }
+    const updatedUser = await authService.updateUserPublicKey(userId, publicKey);
+    return res.status(200).json(updatedUser);
+  } catch (error: any) {
+    return res.status(400).json({ error: error.message });
+  }
+};
+
 export const handleForgotPassword = async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
