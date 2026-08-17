@@ -6,7 +6,7 @@
 ![Socket.io](https://img.shields.io/badge/Socket.io-010101?style=for-the-badge&logo=socket.io&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-181818?style=for-the-badge&logo=supabase&logoColor=3ECF8E)
 
-**LoopIN** is a modern, high-performance real-time messaging web application featuring a WhatsApp-inspired **Midnight Deep Navy Blue UI (`#03081C`)**, lossless image sharing, privacy-first friend requests, real-time message/chat deletion, and mobile responsive optimization.
+**LoopIN** is a modern, high-performance real-time messaging web application featuring a WhatsApp-inspired **Midnight Deep Navy Blue UI (`#03081C`)**, lossless WebP image sharing, voice notes recording, real-time message reactions, group chat management, privacy-first friend requests, real-time message/chat deletion, and mobile responsive optimization.
 
 ---
 
@@ -28,29 +28,41 @@
 * **Top Conversation Sorting**: Chat rooms with the most recent messages automatically bump to the top of your sidebar list in real-time.
 * **Unread Notifications**: Red sidebar badge counters, Web Audio API chime notifications, and dynamic browser tab title indicators (`(1) New Message - LoopIN`).
 
-### 🗑️ 2. Real-Time Room & Message Deletion
+### 🎙️ 2. Voice Notes Recording & Playback
+* **Audio Recorder & Waveform UI**: Record voice notes directly from the input bar with live duration counters and visualizers.
+* **In-App Audio Player**: Sleek voice player with play/pause toggles and custom scrub bars embedded seamlessly in message bubbles.
+
+### 😃 3. Message Emoji Reactions
+* **Quick Emoji Picker Bar**: Hover or tap any message to react with top emojis (❤️ 👍 😂 🔥 😮 😢).
+* **Live Reaction Badges**: Displays aggregated reaction badges under messages updated in real-time across connected clients via WebSockets.
+
+### 👥 4. Group Chat Management & Roles
+* **Group Creation & Customization**: Create custom group chats with group name, description, avatar upload, and member selection.
+* **Admin & Member Roles**: Dedicated group permission controls for admins to add/remove members and update group settings.
+
+### 🗑️ 5. Real-Time Room & Message Deletion
 * **Delete Individual Messages**: Senders can delete specific sent messages 🗑️ with real-time room broadcasts (`delete_message`).
 * **Delete Entire Chat Rooms**: Delete active chat rooms from the sidebar or header menu 🗑️ with real-time socket updates (`delete_conversation`).
 
-### 📷 3. Lossless WebP Image Sharing & 1:1 Avatar Cropper
+### 📷 6. Lossless WebP Image Sharing & 1:1 Avatar Cropper
 * **WebP Lossless Compression**: Client-side HTML5 Canvas compressor converts images to 100% quality WebP format before uploading to Supabase Storage.
 * **1:1 Cover Aspect Ratio Cropper**: Automatic cover scaling (`Math.max(280 / w, 280 / h)`), rule-of-thirds grid framing guides, touch drag gestures, and high-res 512x512 output.
 * **Full-Screen Lightbox Preview**: Click any shared image attachment or user avatar to view in full-resolution lightbox mode.
 
-### ⏱️ 4. 15-Second Message Editing
+### ⏱️ 7. 15-Second Message Editing
 * Senders can edit text messages within a **15-second countdown window**.
 * Live timer counts down (`Edit (15s)` ➔ `Edit (1s)`) and updates rooms in real time via WebSockets.
 
-### 🛡️ 5. Friend Requests & Privacy
+### 🛡️ 8. Friend Requests & Privacy
 * **Privacy-First Search**: Search users strictly by `username` and `avatarUrl` without exposing email addresses.
 * **Request System**: Send, accept, or decline pending friend requests. 1-on-1 direct messaging rooms automatically unlock upon request acceptance.
 
-### 🔒 6. Authentication & Security
+### 🔒 9. Authentication & Security
 * **Unique Username Enforcement**: Strict case-insensitive username uniqueness checks.
 * **Strong Password Policy**: All passwords must contain min 6 chars, 1 uppercase letter (`A-Z`), 1 lowercase letter (`a-z`), 1 number (`0-9`), and 1 special character (`!@#$%^&*`).
 * **Forgot Password Workflow**: 6-digit OTP code reset system with 15-minute expiration tracking.
 
-### 📱 7. Responsive Mobile Design & Resilient Cleanup
+### 📱 10. Responsive Mobile Design & Resilient Cleanup
 * **Single-Pane View Switching**: Mobile screens (`<= 768px`) automatically switch between full-screen Conversations Drawer and Chat Thread with 1-tap back arrow ⬅️.
 * **AbortController Race Condition Protection**: React `useEffect` hooks include `AbortController` cleanup functions to safely cancel pending HTTP requests when rapidly switching chat rooms.
 
@@ -58,8 +70,8 @@
 
 ## 🛠️ Technology Stack
 
-* **Frontend**: React (Vite), TypeScript, Lucide React Icons, HTML5 Canvas API, Web Audio API.
-* **Backend**: Node.js, Express, Socket.io, Bcrypt, JWT (`jsonwebtoken`).
+* **Frontend**: React (Vite), TypeScript, Lucide React Icons, HTML5 Canvas API, Web Audio API, MediaRecorder API.
+* **Backend**: Node.js, Express, Socket.io, Bcrypt, JWT (`jsonwebtoken`), Multer.
 * **Database & Storage**: Supabase PostgreSQL & Supabase Storage Bucket (`chat-images`).
 
 ---
@@ -88,10 +100,13 @@ VITE_SOCKET_URL=http://localhost:5000
 ```
 
 ### 3. Database Migration
-Execute the provided SQL migration scripts in your Supabase SQL Editor:
+Execute the provided SQL migration scripts in your Supabase SQL Editor in order:
 1. `supabase_migration.sql` (User, Conversation, ConversationMember, Message tables + Storage Bucket)
 2. `supabase_friend_migration.sql` (FriendRequest table + indexes)
 3. `supabase_password_reset_migration.sql` (PasswordReset table + OTP indexes)
+4. `supabase_group_migration.sql` (Group description, avatar, and member roles)
+5. `supabase_reaction_migration.sql` (MessageReaction table for emoji reactions)
+6. `supabase_voice_migration.sql` (Voice Notes `audioUrl` column support)
 
 ### 4. Running Development Servers
 
@@ -115,3 +130,4 @@ Open your browser at **`http://localhost:5173`** to access **LoopIN**!
 
 ## 📄 License
 This project is open-source under the MIT License.
+
